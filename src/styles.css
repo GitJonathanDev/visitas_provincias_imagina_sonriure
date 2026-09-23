@@ -8,3 +8,68 @@
 .typeBadge{display:inline-flex;align-items:center;gap:5px;padding:6px 9px;border-radius:999px;font-size:11px;font-weight:800;white-space:nowrap}.typeBadge svg,.barLabel svg{width:14px;height:14px}.typeBadge.dentista,.barLabel.dentista{background:#eee8ff;color:#5d36aa}.typeBadge.tecnico,.barLabel.tecnico{background:#e9f7f1;color:#287650}.typeBadge.hospital,.barLabel.hospital{background:#eaf3fb;color:#2c6791}.typeBadge.farmacia,.barLabel.farmacia{background:#fff2df;color:#94611d}.barLabel{display:inline-flex;align-items:center;gap:5px;width:max-content;max-width:100%}.orderCountBtn{border:1px solid var(--border);background:#faf9fb;border-radius:8px;padding:6px 8px;display:inline-flex;align-items:center;gap:5px;color:var(--purple);font-size:11px}.orderCountBtn:hover{border-color:#cfc2e2;background:var(--purple-soft)}.orderCountBtn svg{width:14px;height:14px}.orderCountBtn svg:last-child{width:12px}.tableSub{display:block;color:var(--muted);font-size:10px;margin-top:3px;font-weight:500}.readonlyInput{background:#f6f4f8!important;color:var(--muted)!important}.detailOrderBox{margin:16px 20px 20px;padding:14px;border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#faf9fb}.detailOrderBox small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase}.detailOrderBox b{display:block;font-size:22px;color:var(--purple);margin-top:3px}.wideOrdersModal{width:min(900px,calc(100vw - 30px))}.ordersSummary{padding:15px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}.ordersSummary .stat{max-width:220px}.localCard{align-items:flex-start}.localCardIcon{color:var(--purple);display:grid;place-items:center}.localCardIcon svg{width:20px}.localCardBody{min-width:0;flex:1}.localTypeCounts{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}.localTypeCounts span{font-size:10px;background:#f5f2f8;border-radius:999px;padding:4px 7px;color:#66616f}.searchRelation{position:relative}.searchRelation>label{display:block;margin-bottom:6px}.searchResults{position:absolute;left:0;right:0;top:66px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);z-index:20;overflow:hidden}.searchResults button{width:100%;border:0;background:#fff;padding:10px 12px;display:flex;align-items:center;gap:10px;text-align:left;border-bottom:1px solid #f0edf3}.searchResults button:hover{background:#faf8fd}.searchResults button>svg{margin-left:auto;width:15px;color:var(--muted)}.resultAvatar{width:32px;height:32px;border-radius:8px;background:var(--purple-soft);color:var(--purple);display:grid;place-items:center;flex:none}.resultAvatar svg{width:16px}.searchResults b,.selectedRelation b{display:block;font-size:12px}.searchResults small,.selectedRelation small{display:block;color:var(--muted);font-size:10px;margin-top:2px}.noResults{padding:13px;color:var(--muted);font-size:12px}.selectedRelation{display:flex;align-items:center;gap:9px;margin-top:7px;padding:9px 10px;border:1px solid #c8e5d5;background:#f0faf4;border-radius:8px}.selectedRelation>svg{width:16px;color:var(--success);flex:none}.selectedRelation>span{flex:1;min-width:0}.selectedRelation button{border:0;background:transparent;color:var(--muted);display:grid;place-items:center}.selectedRelation button svg{width:15px}.compact table{min-width:980px}
 @media(max-width:1100px){.statsFive{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:760px){.statsFive{grid-template-columns:1fr 1fr}.detailOrderBox{align-items:flex-start;flex-direction:column}.ordersSummary{align-items:stretch;flex-direction:column}.ordersSummary .stat{max-width:none}.searchResults{position:static;margin-top:5px}.localCard{align-items:flex-start}.localTypeCounts{display:none}}
+
+/* V4 - autenticación, logo y experiencia responsive */
+.brand{gap:12px}
+.brandLogo{width:142px;height:auto;max-height:52px;object-fit:contain;object-position:left center;flex:none}
+.brandText{min-width:0}
+.brandText b{font-size:13px}
+.sidebarFoot{display:grid;gap:10px}
+.userMini{display:flex;align-items:center;gap:8px;color:#5f5968;min-width:0}
+.userMini>svg{width:20px;flex:none;color:var(--purple)}
+.userMini b{display:block;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:195px;color:var(--text)}
+.userMini small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
+.logoutBtn{border:1px solid var(--border);background:#fff;color:#68636f;border-radius:9px;padding:8px 10px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:11px;font-weight:700}
+.logoutBtn:hover{color:var(--danger);border-color:#edc3ca;background:#fff8f9}
+.logoutBtn svg{width:15px}
+.headerActions{display:flex;align-items:center;gap:8px}
+.headerUser{display:flex;align-items:center;gap:6px;color:#68636f;font-size:11px;max-width:240px}
+.headerUser svg{width:17px;color:var(--purple);flex:none}
+.headerUser span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.splash{position:fixed;inset:0;background:#f4f0fb;display:grid;place-items:center;z-index:1000;animation:splashIn .25s ease-out}
+.splashContent{text-align:center;animation:splashLogoIn .65s ease-out both}
+.splashLogo{width:min(330px,72vw);height:auto;display:block;margin:0 auto}
+.splashContent p{margin:18px 0 0;color:#5c4a7c;font-size:12px;letter-spacing:.04em}
+.splashLoader{display:flex;justify-content:center;gap:5px;margin-top:24px}
+.splashLoader span{width:6px;height:6px;border-radius:50%;background:var(--purple);animation:splashDot 1s ease-in-out infinite}
+.splashLoader span:nth-child(2){animation-delay:.15s}
+.splashLoader span:nth-child(3){animation-delay:.3s}
+@keyframes splashIn{from{opacity:0}to{opacity:1}}
+@keyframes splashLogoIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes splashDot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
+.authPage{min-height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#f5f1fb 0%,#fff 100%);padding:20px}
+.authCard{width:min(430px,100%);background:#fff;border:1px solid var(--border);border-radius:18px;padding:32px;box-shadow:var(--shadow)}
+.authLogoWrap{display:flex;justify-content:center;margin-bottom:25px}
+.authLogo{width:min(250px,75%);height:auto;max-height:90px;object-fit:contain}
+.authHeading{display:flex;align-items:center;gap:11px;margin-bottom:20px}
+.authHeading>svg{width:25px;color:var(--purple);flex:none}
+.authHeading h1{font-size:20px;margin:0}
+.authHeading p{font-size:12px;color:var(--muted);margin:4px 0 0}
+.authForm{display:grid;gap:15px}
+.authForm label{display:grid;gap:7px;font-size:11px;font-weight:700;color:#625d69}
+.authInput{height:44px;border:1px solid var(--border);border-radius:9px;display:flex;align-items:center;gap:8px;padding:0 11px;background:#fff}
+.authInput:focus-within{border-color:#bba9d9;box-shadow:0 0 0 3px #f2edfa}
+.authInput svg{width:17px;color:#8b8592;flex:none}
+.authInput input{border:0;outline:0;width:100%;background:transparent;color:var(--text);font-size:13px}
+.authSubmit{width:100%;height:44px;margin-top:2px}
+.authSubmit:disabled{opacity:.65;cursor:wait}
+.authError{padding:10px 11px;border:1px solid #f1c6cc;border-radius:8px;background:#fff0f2;color:#9b2637;font-size:11px;line-height:1.4}
+.authSecurity{margin-top:20px;padding-top:15px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:6px;color:#88818e;font-size:10px}
+.authSecurity svg{width:14px;color:var(--purple)}
+.authLoading{min-height:100vh;display:grid;place-items:center;background:#f4f0fb}
+.authLoadingCard{display:grid;justify-items:center;gap:14px;color:#6d6478;font-size:12px}
+.authLoadingCard img{width:min(250px,70vw);height:auto}
+@media(max-width:760px){
+  .brandLogo{width:125px}
+  .brandText{display:none}
+  .headerUser{max-width:140px}
+  .headerUser span{display:none}
+  .logoutIcon{display:grid}
+  .authCard{padding:26px 21px}
+}
+@media(max-width:420px){
+  .headerActions{gap:5px}
+  .headerUser{display:none}
+  .authPage{padding:12px}
+  .authCard{border-radius:14px;padding:23px 17px}
+}
