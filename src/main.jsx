@@ -6,7 +6,7 @@ import {
   BarChart3, ClipboardList, Map, Menu, X, Check, Users, CalendarDays,
   RefreshCw, Filter, ExternalLink, Package, CalendarRange, ChevronRight,
   ArrowLeft, Phone, Building2, Stethoscope, Pill, Wrench, Settings2,
-  LogOut, Mail, LockKeyhole, UserCircle2, ShieldCheck
+  LogOut, Mail, LockKeyhole, UserCircle2, ShieldCheck, PanelLeftClose, PanelLeftOpen
 } from "lucide-react";
 import "./styles.css";
 
@@ -68,21 +68,41 @@ function App({ session, onSignOut }) {
   const [modal, setModal] = useState(null);
   const [lightbox, setLightbox] = useState(null);
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("imagine_sidebar_collapsed") === "1");
+  const loadAttemptRef = useRef(0);
 
   const configured = !!supabase;
+  useEffect(() => { localStorage.setItem("imagine_sidebar_collapsed", sidebarCollapsed ? "1" : "0"); }, [sidebarCollapsed]);
   useEffect(() => { loadAll(); }, []);
 
-  async function loadAll() {
+  async function loadAll(attempt = 0) {
     if (!supabase) { setLoading(false); return; }
-    setLoading(true); setError("");
+    const requestId = ++loadAttemptRef.current;
+    setLoading(true);
+    if (attempt === 0) setError("");
+
+    // A veces Supabase puede responder momentáneamente antes de que la sesión
+    // termine de estar disponible o por una conexión intermitente. Reintentamos
+    // automáticamente y nunca sustituimos datos válidos por arrays vacíos.
     const [lr, vr, pr] = await Promise.all([
       supabase.from("localidades").select("*").eq("activo", true).order("nombre"),
       supabase.from("visitas").select("*").order("cod", { ascending: true }),
       supabase.from("pedidos").select("*").order("fecha", { ascending: false }).order("cod", { ascending: true })
     ]);
-    if (lr.error) setError(lr.error.message);
-    if (vr.error) setError(vr.error.message);
-    if (pr.error) setError(pr.error.message);
+
+    if (requestId !== loadAttemptRef.current) return;
+
+    const errors = [lr.error, vr.error, pr.error].filter(Boolean);
+    if (errors.length) {
+      if (attempt < 2) {
+        await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+        return loadAll(attempt + 1);
+      }
+      setError(errors.map(e => e.message).join(" · "));
+      setLoading(false);
+      return;
+    }
+
     const ls = lr.data || [];
     setLocalidades(ls);
     setVisitas(vr.data || []);
@@ -197,7 +217,7 @@ function App({ session, onSignOut }) {
 
   if (!configured) return <SetupGuide />;
 
-  return <div className="app">
+  return <div className={`app ${sidebarCollapsed ? "sidebarCollapsed" : ""}`}>
     <aside className={`sidebar ${mobileMenu ? "open" : ""}`}>
       <div className="brand">
         <img className="brandLogo" src={LOGO_URL} alt="Clínica Dental Imagina" />
@@ -205,21 +225,24 @@ function App({ session, onSignOut }) {
         <button className="iconbtn mobileClose" onClick={() => setMobileMenu(false)}><X /></button>
       </div>
       <nav>
-        <button className={tab === "visitas" ? "active" : ""} onClick={() => { setTab("visitas"); setMobileMenu(false); }}><Users /> Visitas</button>
-        <button className={tab === "pedidos" ? "active" : ""} onClick={() => { setTab("pedidos"); setMobileMenu(false); }}><ClipboardList /> Pedidos</button>
-        <button className={tab === "estadisticas" ? "active" : ""} onClick={() => { setTab("estadisticas"); setMobileMenu(false); }}><BarChart3 /> Estadísticas</button>
-        <button className={tab === "localidades" ? "active" : ""} onClick={() => { setTab("localidades"); setMobileMenu(false); }}><Map /> Localidades</button>
+        <button className={tab === "visitas" ? "active" : ""} onClick={() => { setTab("visitas"); setMobileMenu(false); }}><Users /><span>Visitas</span></button>
+        <button className={tab === "pedidos" ? "active" : ""} onClick={() => { setTab("pedidos"); setMobileMenu(false); }}><ClipboardList /><span>Pedidos</span></button>
+        <button className={tab === "estadisticas" ? "active" : ""} onClick={() => { setTab("estadisticas"); setMobileMenu(false); }}><BarChart3 /><span>Estadísticas</span></button>
+        <button className={tab === "localidades" ? "active" : ""} onClick={() => { setTab("localidades"); setMobileMenu(false); }}><Map /><span>Localidades</span></button>
       </nav>
       <div className="sidebarFoot">
         <div className="userMini"><UserCircle2 /><div><b>{session?.user?.email || "Usuario"}</b><small>Sesión activa</small></div></div>
-        <button className="logoutBtn" onClick={onSignOut}><LogOut /> Cerrar sesión</button>
+        <button className="logoutBtn" onClick={onSignOut}><LogOut /><span>Cerrar sesión</span></button>
         <span>Sistema de gestión de visitas</span>
       </div>
     </aside>
 
     <main>
       <header>
-        <button className="iconbtn mobileOpen" onClick={() => setMobileMenu(true)}><Menu /></button>
+        <div className="headerLeft">
+          <button className="iconbtn mobileOpen" onClick={() => setMobileMenu(true)}><Menu /></button>
+          <button className="iconbtn desktopSidebarToggle" title={sidebarCollapsed ? "Mostrar barra lateral" : "Ocultar barra lateral"} onClick={() => setSidebarCollapsed(v => !v)}>{sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</button>
+        </div>
         <div className="headerTitle"><h1>{tab === "visitas" ? "Visitas" : tab === "pedidos" ? "Pedidos" : tab === "estadisticas" ? "Estadísticas" : "Localidades"}</h1><p>Gestión de visitas provinciales</p></div>
         <div className="headerActions">
           <div className="headerUser"><UserCircle2 /><span>{session?.user?.email || "Usuario"}</span></div>
@@ -424,9 +447,14 @@ function LoginScreen() {
       email: email.trim(),
       password
     });
-    if (authError) setError(authError.message === "Invalid login credentials"
-      ? "Correo o contraseña incorrectos."
-      : authError.message);
+    if (authError) {
+      const message = authError.message || "";
+      setError(message.toLowerCase().includes("jwt issued at future")
+        ? "La fecha y hora de este equipo parecen estar adelantadas. Activa la fecha y hora automáticas del sistema y vuelve a intentar. Este aviso no es un error de contraseña."
+        : message === "Invalid login credentials"
+          ? "Correo o contraseña incorrectos."
+          : message);
+    }
     setBusy(false);
   }
 
@@ -437,10 +465,9 @@ function LoginScreen() {
       <form onSubmit={login} className="authForm">
         <label><span>Correo electrónico</span><div className="authInput"><Mail /><input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" placeholder="correo@ejemplo.com" required /></div></label>
         <label><span>Contraseña</span><div className="authInput"><LockKeyhole /><input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" placeholder="••••••••" required /></div></label>
-        {error && <div className="authError">{error}</div>}
+        {error && <div className="authError"><span>{error}</span><button type="button" className="authErrorClose" onClick={() => setError("")} title="Cerrar aviso"><X /></button></div>}
         <button className="primary authSubmit" type="submit" disabled={busy}>{busy ? "Iniciando sesión..." : "Iniciar sesión"}</button>
       </form>
-      <div className="authSecurity"><ShieldCheck /><span>Acceso protegido mediante Supabase Auth</span></div>
     </div>
   </div>;
 }
