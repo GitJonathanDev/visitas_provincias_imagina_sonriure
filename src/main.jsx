@@ -5,13 +5,15 @@ import {
   Search, Plus, MapPin, MessageCircle, Camera, Eye, Pencil, Trash2,
   BarChart3, ClipboardList, Map, Menu, X, Check, Users, CalendarDays,
   RefreshCw, Filter, ExternalLink, Package, CalendarRange, ChevronRight,
-  ArrowLeft, Phone, Building2, Stethoscope, Pill, Wrench, Settings2
+  ArrowLeft, Phone, Building2, Stethoscope, Pill, Wrench, Settings2,
+  LogOut, Mail, LockKeyhole, UserCircle2, ShieldCheck
 } from "lucide-react";
 import "./styles.css";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 const supabase = SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+const LOGO_URL = `${import.meta.env.BASE_URL}logo-imagina.png`;
 
 const TIPOS = ["Dentista", "Técnico", "Hospital", "Farmacia"];
 const VISITADO = ["Sonriure", "Imagina", "Ambos"];
@@ -53,7 +55,7 @@ function formatDate(d) {
 function numericCod(v) { return Number(v?.cod || 0); }
 function effectiveLocalityId(p, visitas) { return p.localidad_id || visitas.find(v => v.id === p.visita_id)?.localidad_id || ""; }
 
-function App() {
+function App({ session, onSignOut }) {
   const [tab, setTab] = useState("visitas");
   const [localidades, setLocalidades] = useState([]);
   const [localidad, setLocalidad] = useState(null);
@@ -197,18 +199,34 @@ function App() {
 
   return <div className="app">
     <aside className={`sidebar ${mobileMenu ? "open" : ""}`}>
-      <div className="brand"><div className="brandmark">I</div><div><b>Visitas Provincias</b><small>Imagina · Sonriure</small></div><button className="iconbtn mobileClose" onClick={() => setMobileMenu(false)}><X /></button></div>
+      <div className="brand">
+        <img className="brandLogo" src={LOGO_URL} alt="Clínica Dental Imagina" />
+        <div className="brandText"><b>Visitas Provincias</b><small>Imagina · Sonriure</small></div>
+        <button className="iconbtn mobileClose" onClick={() => setMobileMenu(false)}><X /></button>
+      </div>
       <nav>
         <button className={tab === "visitas" ? "active" : ""} onClick={() => { setTab("visitas"); setMobileMenu(false); }}><Users /> Visitas</button>
         <button className={tab === "pedidos" ? "active" : ""} onClick={() => { setTab("pedidos"); setMobileMenu(false); }}><ClipboardList /> Pedidos</button>
         <button className={tab === "estadisticas" ? "active" : ""} onClick={() => { setTab("estadisticas"); setMobileMenu(false); }}><BarChart3 /> Estadísticas</button>
         <button className={tab === "localidades" ? "active" : ""} onClick={() => { setTab("localidades"); setMobileMenu(false); }}><Map /> Localidades</button>
       </nav>
-      <div className="sidebarFoot">Sistema de gestión de visitas</div>
+      <div className="sidebarFoot">
+        <div className="userMini"><UserCircle2 /><div><b>{session?.user?.email || "Usuario"}</b><small>Sesión activa</small></div></div>
+        <button className="logoutBtn" onClick={onSignOut}><LogOut /> Cerrar sesión</button>
+        <span>Sistema de gestión de visitas</span>
+      </div>
     </aside>
 
     <main>
-      <header><button className="iconbtn mobileOpen" onClick={() => setMobileMenu(true)}><Menu /></button><div><h1>{tab === "visitas" ? "Visitas" : tab === "pedidos" ? "Pedidos" : tab === "estadisticas" ? "Estadísticas" : "Localidades"}</h1><p>Gestión de visitas provinciales</p></div><button className="iconbtn" title="Actualizar" onClick={loadAll}><RefreshCw /></button></header>
+      <header>
+        <button className="iconbtn mobileOpen" onClick={() => setMobileMenu(true)}><Menu /></button>
+        <div className="headerTitle"><h1>{tab === "visitas" ? "Visitas" : tab === "pedidos" ? "Pedidos" : tab === "estadisticas" ? "Estadísticas" : "Localidades"}</h1><p>Gestión de visitas provinciales</p></div>
+        <div className="headerActions">
+          <div className="headerUser"><UserCircle2 /><span>{session?.user?.email || "Usuario"}</span></div>
+          <button className="iconbtn" title="Actualizar" onClick={loadAll}><RefreshCw /></button>
+          <button className="iconbtn logoutIcon" title="Cerrar sesión" onClick={onSignOut}><LogOut /></button>
+        </div>
+      </header>
       {error && <div className="alert">{error}<button onClick={() => setError("")}><X /></button></div>}
       {loading && <div className="loading">Cargando información...</div>}
 
@@ -381,4 +399,92 @@ function Localidades({ ls, visitas, pedidos, onAdd, onEdit, onDelete }) {
 }
 function SetupGuide() { return <div className="setup"><div className="setupCard"><div className="brandmark">I</div><h1>Visitas Provincias</h1><p>Imagina · Sonriure</p><h2>Configura Supabase</h2><p>Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en GitHub Actions y ejecuta la migración SQL indicada.</p></div></div>; }
 
-createRoot(document.getElementById("root")).render(<App />);
+function SplashScreen() {
+  return <div className="splash">
+    <div className="splashContent">
+      <img src={LOGO_URL} alt="Clínica Dental Imagina" className="splashLogo" />
+      <div className="splashLoader" aria-label="Cargando"><span></span><span></span><span></span></div>
+      <p>Visitas Provincias · Imagina · Sonriure</p>
+    </div>
+  </div>;
+}
+
+function LoginScreen() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function login(e) {
+    e.preventDefault();
+    if (!supabase) return;
+    setBusy(true);
+    setError("");
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password
+    });
+    if (authError) setError(authError.message === "Invalid login credentials"
+      ? "Correo o contraseña incorrectos."
+      : authError.message);
+    setBusy(false);
+  }
+
+  return <div className="authPage">
+    <div className="authCard">
+      <div className="authLogoWrap"><img src={LOGO_URL} alt="Clínica Dental Imagina" className="authLogo" /></div>
+      <div className="authHeading"><ShieldCheck /><div><h1>Visitas Provincias</h1><p>Acceso seguro al sistema</p></div></div>
+      <form onSubmit={login} className="authForm">
+        <label><span>Correo electrónico</span><div className="authInput"><Mail /><input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" placeholder="correo@ejemplo.com" required /></div></label>
+        <label><span>Contraseña</span><div className="authInput"><LockKeyhole /><input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" placeholder="••••••••" required /></div></label>
+        {error && <div className="authError">{error}</div>}
+        <button className="primary authSubmit" type="submit" disabled={busy}>{busy ? "Iniciando sesión..." : "Iniciar sesión"}</button>
+      </form>
+      <div className="authSecurity"><ShieldCheck /><span>Acceso protegido mediante Supabase Auth</span></div>
+    </div>
+  </div>;
+}
+
+function AuthApp() {
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(!!supabase);
+  const [booting, setBooting] = useState(true);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setBooting(false), 1200);
+    if (!supabase) {
+      setAuthLoading(false);
+      return () => window.clearTimeout(timer);
+    }
+    let mounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) {
+        setSession(data.session);
+        setAuthLoading(false);
+      }
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setAuthLoading(false);
+    });
+    return () => {
+      mounted = false;
+      window.clearTimeout(timer);
+      listener?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  async function signOut() {
+    if (!supabase) return;
+    const { error } = await supabase.auth.signOut();
+    if (error) window.alert(error.message);
+  }
+
+  if (booting) return <SplashScreen />;
+  if (!supabase) return <SetupGuide />;
+  if (authLoading) return <div className="authLoading"><div className="authLoadingCard"><img src={LOGO_URL} alt="Clínica Dental Imagina" /><span>Verificando sesión...</span></div></div>;
+  if (!session) return <LoginScreen />;
+  return <App session={session} onSignOut={signOut} />;
+}
+
+createRoot(document.getElementById("root")).render(<AuthApp />);
