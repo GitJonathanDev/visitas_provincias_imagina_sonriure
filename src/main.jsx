@@ -6,7 +6,7 @@ import {
   BarChart3, ClipboardList, Map, Menu, X, Check, Users, CalendarDays,
   RefreshCw, Filter, ExternalLink, Package, CalendarRange, ChevronRight,
   ArrowLeft, Phone, Building2, Stethoscope, Pill, Wrench, Settings2,
-  LogOut, Mail, LockKeyhole, UserCircle2, ShieldCheck, PanelLeftClose, PanelLeftOpen
+  LogOut, Mail, LockKeyhole, UserCircle2, ShieldCheck, PanelLeftClose, PanelLeftOpen, ScrollText, KeyRound
 } from "lucide-react";
 import "./styles.css";
 
@@ -69,6 +69,8 @@ function App({ session, onSignOut }) {
   const [lightbox, setLightbox] = useState(null);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("imagine_sidebar_collapsed") === "1");
+  const [logsUnlocked, setLogsUnlocked] = useState(false);
+  const [logsCode, setLogsCode] = useState("");
   const loadAttemptRef = useRef(0);
 
   const configured = !!supabase;
@@ -229,6 +231,7 @@ function App({ session, onSignOut }) {
         <button className={tab === "pedidos" ? "active" : ""} onClick={() => { setTab("pedidos"); setMobileMenu(false); }}><ClipboardList /><span>Pedidos</span></button>
         <button className={tab === "estadisticas" ? "active" : ""} onClick={() => { setTab("estadisticas"); setMobileMenu(false); }}><BarChart3 /><span>Estadísticas</span></button>
         <button className={tab === "localidades" ? "active" : ""} onClick={() => { setTab("localidades"); setMobileMenu(false); }}><Map /><span>Localidades</span></button>
+        <button className={tab === "logs" ? "active" : ""} onClick={() => { if (logsUnlocked) { setTab("logs"); setMobileMenu(false); } else { setModal({ type: "logsGate" }); } }}><ScrollText /><span>Logs</span></button>
       </nav>
       <div className="sidebarFoot">
         <div className="userMini"><UserCircle2 /><div><b>{session?.user?.email || "Usuario"}</b><small>Sesión activa</small></div></div>
@@ -243,7 +246,7 @@ function App({ session, onSignOut }) {
           <button className="iconbtn mobileOpen" onClick={() => setMobileMenu(true)}><Menu /></button>
           <button className="iconbtn desktopSidebarToggle" title={sidebarCollapsed ? "Mostrar barra lateral" : "Ocultar barra lateral"} onClick={() => setSidebarCollapsed(v => !v)}>{sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</button>
         </div>
-        <div className="headerTitle"><h1>{tab === "visitas" ? "Visitas" : tab === "pedidos" ? "Pedidos" : tab === "estadisticas" ? "Estadísticas" : "Localidades"}</h1><p>Gestión de visitas provinciales</p></div>
+        <div className="headerTitle"><h1>{tab === "visitas" ? "Visitas" : tab === "pedidos" ? "Pedidos" : tab === "estadisticas" ? "Estadísticas" : tab === "localidades" ? "Localidades" : "Logs"}</h1><p>{tab === "logs" ? "Registro de actividad del sistema" : "Gestión de visitas provinciales"}</p></div>
         <div className="headerActions">
           <div className="headerUser"><UserCircle2 /><span>{session?.user?.email || "Usuario"}</span></div>
           <button className="iconbtn" title="Actualizar" onClick={loadAll}><RefreshCw /></button>
@@ -279,12 +282,14 @@ function App({ session, onSignOut }) {
       {!loading && tab === "estadisticas" && <Stats visits={visitas} localidades={localidades} pedidos={pedidos} />}
       {!loading && tab === "pedidos" && <Orders pedidos={pedidos} localidades={localidades} visitas={visitas} onSave={savePedido} onDelete={removePedido} onEdit={p => setModal({ type: "pedido", data: p })} onNew={() => setModal({ type: "pedido", data: { ...emptyPedido, localidad_id: localidad?.id || localidades[0]?.id || "" } })} />}
       {!loading && tab === "localidades" && <Localidades ls={localidades} visitas={visitas} pedidos={pedidos} onAdd={addLocalidad} onEdit={editLocalidad} onDelete={deleteLocalidad} />}
+      {!loading && tab === "logs" && <Logs accessCode={logsCode} />}
     </main>
 
     {modal?.type === "visit" && <VisitModal data={modal.data} localidades={localidades} onClose={() => setModal(null)} onSave={saveVisit} onImage={setLightbox} />}
     {modal?.type === "detail" && <DetailModal data={modal.data} pedidosCount={pedidosCountByVisita[modal.data.id] || 0} onClose={() => setModal(null)} onImage={setLightbox} onOrders={() => openVisitOrders(modal.data)} />}
     {modal?.type === "pedido" && <PedidoModal data={modal.data} localidades={localidades} visitas={visitas} onClose={() => setModal(null)} onSave={savePedido} />}
     {modal?.type === "visitOrders" && <VisitOrdersModal visita={modal.data} pedidos={pedidos.filter(p => p.visita_id === modal.data.id)} localidades={localidades} onClose={() => setModal(null)} onEdit={p => setModal({ type: "pedido", data: p })} onNew={() => setModal({ type: "pedido", data: { ...emptyPedido, visita_id: modal.data.id, localidad_id: modal.data.localidad_id } })} />}
+    {modal?.type === "logsGate" && <LogsGate onClose={() => setModal(null)} onUnlock={(code) => { setLogsCode(code); setLogsUnlocked(true); setModal(null); setTab("logs"); setMobileMenu(false); }} />}
     {lightbox && <ImageLightbox src={lightbox} onClose={() => setLightbox(null)} />}
   </div>;
 }
@@ -420,6 +425,88 @@ function PedidoModal({ data, localidades, visitas, onClose, onSave }) {
 function Localidades({ ls, visitas, pedidos, onAdd, onEdit, onDelete }) {
   return <section className="page"><div className="pageTitle"><div><h2>Localidades</h2><p>Edita y administra las localidades disponibles.</p></div><button className="primary" onClick={onAdd}><Plus /> Nueva localidad</button></div><div className="cards">{ls.map(l => { const v = visitas.filter(x => x.localidad_id === l.id); const p = pedidos.filter(x => effectiveLocalityId(x, visitas) === l.id); return <div className="localCard" key={l.id}><div className="localCardIcon"><MapPin /></div><div className="localCardBody"><b>{l.nombre}</b><small>{v.length} visitas · {p.length} pedidos</small><div className="localTypeCounts"><span>{v.filter(x=>x.tipo === "Dentista").length} Dentistas</span><span>{v.filter(x=>x.tipo === "Hospital").length} Hospitales</span><span>{v.filter(x=>x.tipo === "Farmacia").length} Farmacias</span><span>{v.filter(x=>x.tipo === "Técnico").length} Técnicos</span></div></div><div className="actions"><button className="iconbtn" title="Editar localidad" onClick={() => onEdit(l)}><Pencil /></button><button className="iconbtn danger" title="Eliminar localidad" onClick={() => onDelete(l)}><Trash2 /></button></div></div>; })}</div></section>;
 }
+function LogsGate({ onClose, onUnlock }) {
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  async function submit(e) {
+    e.preventDefault();
+    if (!supabase || !code) return;
+    setError("");
+    const { data, error: rpcError } = await supabase.rpc("verify_logs_access", { p_code: code });
+    if (rpcError || data !== true) {
+      setError("Contraseña incorrecta");
+      setCode("");
+      return;
+    }
+    onUnlock(code);
+  }
+  return <div className="overlay"><div className="modal logsGateModal">
+    <div className="modalHead"><div><h2>Acceso a Logs</h2><p>Introduce el código para consultar el registro de actividad.</p></div><button className="iconbtn" onClick={onClose}><X /></button></div>
+    <form onSubmit={submit} className="logsGateForm">
+      <div className="logsKeyIcon"><KeyRound /></div>
+      <label>Código de acceso<div className="authInput"><LockKeyhole /><input autoFocus type="password" value={code} onChange={e => { setCode(e.target.value); setError(""); }} placeholder="Introduce el código" /></div></label>
+      {error && <div className="logsGateError">{error}</div>}
+      <div className="modalFoot"><button type="button" className="secondary" onClick={onClose}>Cancelar</button><button type="submit" className="primary">Ingresar a Logs</button></div>
+    </form>
+  </div></div>;
+}
+
+function Logs({ accessCode }) {
+  const [logs, setLogs] = useState([]);
+  const [operation, setOperation] = useState("todos");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  async function loadLogs() {
+    if (!supabase) return;
+    setLoading(true); setError("");
+    const { data, error } = await supabase.rpc("get_logs", {
+      p_code: accessCode,
+      p_operacion: operation === "todos" ? null : operation,
+      p_desde: from || null,
+      p_hasta: to || null,
+      p_busqueda: search.trim() || null
+    });
+    if (error) setError(error.message); else setLogs(data || []);
+    setLoading(false);
+  }
+  useEffect(() => { loadLogs(); }, [operation, from, to]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return logs;
+    return logs.filter(l => `${l.usuario_email || ""} ${l.entidad || ""} ${l.descripcion || ""} ${l.operacion || ""}`.toLowerCase().includes(q));
+  }, [logs, search]);
+
+  const operationLabel = op => ({ registro: "Registro", edicion: "Edición", eliminacion: "Eliminación" }[op] || op || "—");
+  const operationClass = op => ({ registro: "logRegistro", edicion: "logEdicion", eliminacion: "logEliminacion" }[op] || "");
+  const entityLabel = e => ({ visitas: "Visita", pedidos: "Pedido", localidades: "Localidad" }[e] || e || "—");
+  const dateTime = value => value ? new Date(value).toLocaleString("es-BO", { dateStyle: "short", timeStyle: "medium" }) : "—";
+  const clear = () => { setOperation("todos"); setFrom(""); setTo(""); setSearch(""); };
+
+  return <section className="page logsPage">
+    <div className="pageTitle"><div><h2>Logs</h2><p>Registro de las operaciones realizadas dentro del sistema.</p></div><button className="secondary" onClick={loadLogs}><RefreshCw /> Actualizar</button></div>
+    <div className="filtersCard"><div className="filterHeader"><div><ScrollText /><b>Filtros de actividad</b></div><button className="clearBtn" onClick={clear}>Limpiar filtros</button></div>
+      <div className="filterGrid logsFilterGrid">
+        <div className="search filterSearch"><Search /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar usuario, operación o descripción..." /></div>
+        <label>Operación<select value={operation} onChange={e => setOperation(e.target.value)}><option value="todos">Todas</option><option value="registro">Registro</option><option value="edicion">Edición</option><option value="eliminacion">Eliminación</option></select></label>
+        <label>Desde<input type="date" value={from} onChange={e => setFrom(e.target.value)} /></label>
+        <label>Hasta<input type="date" value={to} onChange={e => setTo(e.target.value)} /></label>
+      </div>
+    </div>
+    {error && <div className="alert">{error}<button onClick={() => setError("")}><X /></button></div>}
+    <div className="statsMini statsFive"><Stat icon={<ScrollText />} label="Registros mostrados" value={filtered.length} /><Stat icon={<Plus />} label="Registros" value={filtered.filter(x => x.operacion === "registro").length} /><Stat icon={<Pencil />} label="Ediciones" value={filtered.filter(x => x.operacion === "edicion").length} /><Stat icon={<Trash2 />} label="Eliminaciones" value={filtered.filter(x => x.operacion === "eliminacion").length} /><Stat icon={<Users />} label="Usuarios" value={new Set(filtered.map(x => x.usuario_id).filter(Boolean)).size} /></div>
+    <div className="tableWrap logsTableWrap"><table><thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Operación</th><th>Elemento</th><th>Qué hizo</th></tr></thead><tbody>
+      {loading && <tr><td colSpan="5" className="empty">Cargando logs...</td></tr>}
+      {!loading && filtered.map(l => <tr key={l.id}><td className="logDate">{dateTime(l.created_at)}</td><td><div className="logUser"><UserCircle2 /><span>{l.usuario_email || "Usuario no identificado"}</span></div></td><td><span className={`logOperation ${operationClass(l.operacion)}`}>{operationLabel(l.operacion)}</span></td><td><span className="logEntity">{entityLabel(l.entidad)}</span></td><td><b>{l.descripcion || "—"}</b></td></tr>)}
+      {!loading && !filtered.length && <tr><td colSpan="5" className="empty">No hay registros para los filtros seleccionados.</td></tr>}
+    </tbody></table></div>
+  </section>;
+}
+
 function SetupGuide() { return <div className="setup"><div className="setupCard"><div className="brandmark">I</div><h1>Visitas Provincias</h1><p>Imagina · Sonriure</p><h2>Configura Supabase</h2><p>Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en GitHub Actions y ejecuta la migración SQL indicada.</p></div></div>; }
 
 function SplashScreen() {
@@ -461,13 +548,14 @@ function LoginScreen() {
   return <div className="authPage">
     <div className="authCard">
       <div className="authLogoWrap"><img src={LOGO_URL} alt="Clínica Dental Imagina" className="authLogo" /></div>
-      <div className="authHeading"><ShieldCheck /><div><h1>Visitas Provincias</h1><p></p></div></div>
+      <div className="authHeading"><ShieldCheck /><div><h1>Visitas Provincias</h1><p>Acceso seguro al sistema</p></div></div>
       <form onSubmit={login} className="authForm">
         <label><span>Correo electrónico</span><div className="authInput"><Mail /><input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" placeholder="correo@ejemplo.com" required /></div></label>
         <label><span>Contraseña</span><div className="authInput"><LockKeyhole /><input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" placeholder="••••••••" required /></div></label>
         {error && <div className="authError"><span>{error}</span><button type="button" className="authErrorClose" onClick={() => setError("")} title="Cerrar aviso"><X /></button></div>}
         <button className="primary authSubmit" type="submit" disabled={busy}>{busy ? "Iniciando sesión..." : "Iniciar sesión"}</button>
       </form>
+      <div className="authSecurity"><ShieldCheck /><span>Acceso protegido mediante Supabase Auth</span></div>
     </div>
   </div>;
 }
