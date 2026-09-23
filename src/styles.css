@@ -154,3 +154,25 @@
   .authPage{padding:12px}
   .authCard{border-radius:14px;padding:23px 17px}
 }
+
+/* V5 - Logs / auditoría */
+.logsGateModal{width:min(460px,calc(100vw - 28px))}
+.logsGateForm{display:grid;gap:15px;padding-top:4px}
+.logsGateForm label{display:grid;gap:7px;font-size:11px;font-weight:700;color:#625d69}
+.logsKeyIcon{width:54px;height:54px;border-radius:14px;background:#f1ebfa;color:var(--purple);display:grid;place-items:center;margin:2px auto 4px}
+.logsKeyIcon svg{width:25px}
+.logsGateError{padding:10px 11px;border:1px solid #f1c6cc;border-radius:8px;background:#fff0f2;color:#9b2637;font-size:11px}
+.logsFilterGrid{grid-template-columns:minmax(260px,2fr) repeat(3,minmax(150px,1fr))}
+.logsTableWrap{max-height:calc(100vh - 390px);overflow:auto}
+.logUser{display:flex;align-items:center;gap:7px;min-width:180px}
+.logUser svg{width:18px;color:var(--purple);flex:none}
+.logUser span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.logDate{white-space:nowrap;color:#68636f;font-size:11px}
+.logOperation,.logEntity{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:800;white-space:nowrap}
+.logRegistro{background:#eaf8ef;color:#19733c}
+.logEdicion{background:#f1ebfa;color:#6543a0}
+.logEliminacion{background:#fff0f2;color:#a72d40}
+.logEntity{background:#f4f2f6;color:#635e69}
+.logsPage .statsMini{margin-bottom:16px}
+@media(max-width:900px){.logsFilterGrid{grid-template-columns:1fr 1fr}.logsFilterGrid .filterSearch{grid-column:1/-1}.logsTableWrap{max-height:none}}
+@media(max-width:560px){.logsFilterGrid{grid-template-columns:1fr}.logsFilterGrid .filterSearch{grid-column:auto}.logsTableWrap table{min-width:760px}.logsGateModal{padding:18px}}
