@@ -461,7 +461,7 @@ function LoginScreen() {
   return <div className="authPage">
     <div className="authCard">
       <div className="authLogoWrap"><img src={LOGO_URL} alt="Clínica Dental Imagina" className="authLogo" /></div>
-      <div className="authHeading"><ShieldCheck /><div><h1>Visitas Provincias</h1><p>Acceso seguro al sistema</p></div></div>
+      <div className="authHeading"><ShieldCheck /><div><h1>Visitas Provincias</h1><p></p></div></div>
       <form onSubmit={login} className="authForm">
         <label><span>Correo electrónico</span><div className="authInput"><Mail /><input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" placeholder="correo@ejemplo.com" required /></div></label>
         <label><span>Contraseña</span><div className="authInput"><LockKeyhole /><input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" placeholder="••••••••" required /></div></label>
