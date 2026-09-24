@@ -176,3 +176,35 @@
 .logsPage .statsMini{margin-bottom:16px}
 @media(max-width:900px){.logsFilterGrid{grid-template-columns:1fr 1fr}.logsFilterGrid .filterSearch{grid-column:1/-1}.logsTableWrap{max-height:none}}
 @media(max-width:560px){.logsFilterGrid{grid-template-columns:1fr}.logsFilterGrid .filterSearch{grid-column:auto}.logsTableWrap table{min-width:760px}.logsGateModal{padding:18px}}
+
+/* V6 - índice, estados, call center, mapa y eliminaciones protegidas */
+.indexCell{font-weight:800;color:#6d617d;text-align:center;min-width:48px}
+.visitRow.tecnico{background:rgba(116,86,158,.045)}
+.visitRow.tecnico:hover{background:rgba(116,86,158,.085)}
+.visitRow.dentista{background:rgba(71,145,102,.018)}
+.visitRow.hospital{background:rgba(66,126,180,.018)}
+.visitRow.farmacia{background:rgba(188,137,53,.018)}
+.visitRow .status{font-weight:800;border-width:1px}
+.status.visited{background:#e5f5ea;color:#287a48;border-color:#9ed0ad}
+.status.imagine{background:#eee6fa;color:#68469b;border-color:#c9b6e6}
+.status.sonriure{background:#e7f0fb;color:#376a9d;border-color:#a9c6e3}
+.status.both{background:#f0e8f8;color:#79518d;border-color:#cdb8d8}
+.status.closed{background:#fff0d9;color:#a46513;border-color:#e8c27f}
+.status.notvisited{background:#fde9ec;color:#a63c4b;border-color:#e5a9b2}
+.status.uninterested{background:#f1edf0;color:#716a73;border-color:#c9c1c9}
+.callToggle{min-width:58px;font-weight:900;border:2px solid #d7d0df!important;box-shadow:0 1px 3px rgba(60,40,80,.08)}
+.callToggle.yes{background:#dff5e7!important;color:#15743a!important;border-color:#68bd88!important}
+.callToggle.no{background:#fff0f2!important;color:#a82d40!important;border-color:#e39aa5!important}
+.dangerPrimary{border:0;background:#b72d42;color:#fff;border-radius:9px;padding:10px 15px;font-weight:800;display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+.dangerPrimary:hover{background:#9e2538}.dangerPrimary:disabled{opacity:.6;cursor:wait}.dangerKey{background:#fff0f2;color:#b72d42}
+
+/* Localidades + mapa */
+.localityCards{margin-bottom:18px}.selectedLocalCard{border-color:#a98bcf!important;box-shadow:0 0 0 2px rgba(116,82,160,.10)}
+.localCard{cursor:pointer}.mapSection{margin-top:20px;background:#fff;border:1px solid var(--border);border-radius:14px;padding:15px;box-shadow:var(--shadow)}
+.mapSectionHead{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:12px}.mapSectionHead h3{display:flex;align-items:center;gap:7px;margin:0;font-size:16px}.mapSectionHead h3 svg{width:18px;color:var(--purple)}.mapSectionHead p{margin:4px 0 0;color:var(--muted);font-size:11px}
+.locationStatus{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap}.locationStatus svg{width:14px}.locationStatus.inside{background:#e8f7ed;color:#237441}.locationStatus.outside{background:#fff0f2;color:#a42d40}
+.mapLayout{display:grid;grid-template-columns:310px minmax(0,1fr);gap:12px;min-height:540px}.mapRecordsPanel{border:1px solid var(--border);border-radius:11px;background:#fbfafc;display:flex;flex-direction:column;min-width:0}.mapSearch{margin:10px}.mapRecordList{overflow:auto;padding:0 8px 8px}.mapRecordItem{width:100%;display:flex;align-items:center;gap:8px;text-align:left;border:0;border-bottom:1px solid #eeeaf1;background:transparent;padding:10px 6px;cursor:pointer;color:var(--text)}.mapRecordItem:hover{background:#f2edf8}.mapRecordItem>span:nth-child(2){flex:1;min-width:0}.mapRecordItem b,.mapRecordItem small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mapRecordItem b{font-size:11px}.mapRecordItem small{font-size:9px;color:var(--muted);margin-top:2px}.mapRecordItem>svg{width:14px;color:#aaa}.miniType{width:27px;height:27px;border-radius:8px;display:grid;place-items:center;flex:none}.miniType svg{width:14px}.miniType.dentista{background:#e7f5eb;color:#287a48}.miniType.tecnico{background:#eee6fa;color:#68469b}.miniType.hospital{background:#e7f0fb;color:#376a9d}.miniType.farmacia{background:#fff1df;color:#a46513}
+.mapCanvasWrap{position:relative;border-radius:11px;overflow:hidden;border:1px solid var(--border);min-height:540px}.mapCanvas{position:absolute;inset:0}.mapLoading{position:absolute;inset:0;display:grid;place-items:center;background:rgba(255,255,255,.82);font-size:12px;color:var(--muted);z-index:500}.customMapMarker{background:transparent;border:0}.mapPinMarker{width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:grid;place-items:center;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.28)}.mapPinMarker span{transform:rotate(45deg);font-size:12px;font-weight:900;color:#fff}.mapPinMarker.green{background:#36a35d}.mapPinMarker.red{background:#d54b5a}.mapPinMarker.dentista{outline:2px solid rgba(55,160,88,.35)}.mapPinMarker.tecnico{outline:2px solid rgba(111,73,166,.35)}.mapPinMarker.hospital{outline:2px solid rgba(61,112,170,.35)}.mapPinMarker.farmacia{outline:2px solid rgba(184,128,43,.35)}.localityMarker{background:transparent;border:0}.localityDot{width:18px;height:18px;border-radius:50%;background:#7452a0;border:4px solid #fff;box-shadow:0 2px 7px rgba(0,0,0,.3)}
+.mapPopup{min-width:180px;display:grid;gap:5px}.mapPopupPhoto{width:100%;height:85px;border-radius:7px;overflow:hidden;background:#f0edf3}.mapPopupPhoto img{width:100%;height:100%;object-fit:cover}.mapNoPhoto{height:100%;display:grid;place-items:center;color:#756c80;font-size:10px}.mapPopup>b{font-size:12px}.mapPopup>small{font-size:10px;color:#777}.mapDetailBtn{border:0;border-radius:7px;background:#7452a0;color:#fff;padding:7px 9px;font-size:10px;font-weight:800;cursor:pointer}.mapDetailBtn:hover{background:#63458c}.mapEmpty{padding:15px}
+@media(max-width:900px){.mapLayout{grid-template-columns:1fr}.mapRecordsPanel{max-height:260px}.mapCanvasWrap,.mapCanvas{min-height:430px;height:430px}.mapSectionHead{align-items:flex-start;flex-direction:column}}
+@media(max-width:560px){.mapSection{padding:10px}.mapCanvasWrap,.mapCanvas{min-height:380px;height:380px}.mapSectionHead h3{font-size:14px}.mapRecordList{max-height:230px}}
