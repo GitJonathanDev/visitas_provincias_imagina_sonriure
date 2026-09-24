@@ -594,7 +594,7 @@ function LoginScreen() {
         {error && <div className="authError"><span>{error}</span><button type="button" className="authErrorClose" onClick={() => setError("")} title="Cerrar aviso"><X /></button></div>}
         <button className="primary authSubmit" type="submit" disabled={busy}>{busy ? "Iniciando sesión..." : "Iniciar sesión"}</button>
       </form>
-      <div className="authSecurity"><ShieldCheck /><span>Acceso protegido mediante Supabase Auth</span></div>
+      <div className="authSecurity"><ShieldCheck /><span></span></div>
     </div>
   </div>;
 }
