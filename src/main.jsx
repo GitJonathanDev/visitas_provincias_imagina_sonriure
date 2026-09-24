@@ -6,7 +6,7 @@ import {
   BarChart3, ClipboardList, Map, Menu, X, Check, Users, CalendarDays,
   RefreshCw, Filter, ExternalLink, Package, CalendarRange, ChevronRight,
   ArrowLeft, Phone, Building2, Stethoscope, Pill, Wrench, Settings2,
-  LogOut, Mail, LockKeyhole, UserCircle2, ShieldCheck, PanelLeftClose, PanelLeftOpen, ScrollText, KeyRound
+  LogOut, Mail, LockKeyhole, UserCircle2, ShieldCheck, PanelLeftClose, PanelLeftOpen, ScrollText, KeyRound, LocateFixed, Navigation, MapPinned
 } from "lucide-react";
 import "./styles.css";
 
@@ -71,11 +71,13 @@ function App({ session, onSignOut }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("imagine_sidebar_collapsed") === "1");
   const [logsUnlocked, setLogsUnlocked] = useState(false);
   const [logsCode, setLogsCode] = useState("");
+  const [deleteRequest, setDeleteRequest] = useState(null);
   const loadAttemptRef = useRef(0);
 
   const configured = !!supabase;
   useEffect(() => { localStorage.setItem("imagine_sidebar_collapsed", sidebarCollapsed ? "1" : "0"); }, [sidebarCollapsed]);
   useEffect(() => { loadAll(); }, []);
+  useEffect(() => { const fn = e => setModal({ type: "detail", data: e.detail }); window.addEventListener("open-visit-detail", fn); return () => window.removeEventListener("open-visit-detail", fn); }, []);
 
   async function loadAll(attempt = 0) {
     if (!supabase) { setLoading(false); return; }
@@ -126,52 +128,25 @@ function App({ session, onSignOut }) {
     setModal(null); await loadAll();
   }
 
-  async function removeVisit(id) {
-    if (!supabase || !confirm("¿Eliminar este registro? Los pedidos relacionados podrían quedar sin visita.")) return;
-    const { error } = await supabase.from("visitas").delete().eq("id", id);
-    if (error) setError(error.message); else await loadAll();
+  async function verifyCode(code) {
+    if (!supabase || !code) return false;
+    const { data, error: rpcError } = await supabase.rpc("verify_logs_access", { p_code: code });
+    if (rpcError) { setError(rpcError.message); return false; }
+    return data === true;
   }
 
-  async function quickVisit(id, field, value) {
+  function requestDelete(kind, item) {
+    setDeleteRequest({ kind, item });
+  }
+
+  async function performDelete(kind, item, code) {
     if (!supabase) return;
-    const { error } = await supabase.from("visitas").update({ [field]: value }).eq("id", id);
-    if (error) setError(error.message);
-    else setVisitas(prev => prev.map(v => v.id === id ? { ...v, [field]: value } : v));
-  }
-
-  async function savePedido(p) {
-    if (!supabase) return;
-    const payload = { ...p, cantidad: Number(p.cantidad) || 1 };
-    delete payload.id;
-    delete payload.cod;
-    const result = p.id
-      ? await supabase.from("pedidos").update(payload).eq("id", p.id)
-      : await supabase.from("pedidos").insert(payload);
-    if (result.error) return setError(result.error.message);
-    setModal(null); await loadAll();
-  }
-
-  async function removePedido(id) {
-    if (!supabase || !confirm("¿Eliminar este pedido? Esta acción no se puede deshacer.")) return;
-    const { error } = await supabase.from("pedidos").delete().eq("id", id);
-    if (error) setError(error.message); else await loadAll();
-  }
-
-  async function addLocalidad() {
-    const nombre = prompt("Nombre de la nueva localidad:");
-    if (!nombre?.trim() || !supabase) return;
-    const { data, error } = await supabase.from("localidades").insert({ nombre: nombre.trim() }).select().single();
-    if (error) setError(error.message);
-    else { setLocalidades(prev => [...prev, data].sort((a, b) => a.nombre.localeCompare(b.nombre))); setLocalidad(data); }
-  }
-
-  async function editLocalidad(l) {
-    const nombre = prompt("Nuevo nombre de la localidad:", l.nombre);
-    if (!nombre?.trim() || nombre.trim() === l.nombre || !supabase) return;
-    const { data, error } = await supabase.from("localidades").update({ nombre: nombre.trim() }).eq("id", l.id).select().single();
-    if (error) return setError(error.message);
-    setLocalidades(prev => prev.map(x => x.id === l.id ? data : x).sort((a, b) => a.nombre.localeCompare(b.nombre)));
-    setLocalidad(prev => prev?.id === l.id ? data : prev);
+    const fn = kind === "visita" ? "delete_visit_with_code" : kind === "pedido" ? "delete_pedido_with_code" : "delete_localidad_with_code";
+    const arg = kind === "localidad" ? { p_id: item.id, p_code: code } : { p_id: item.id, p_code: code };
+    const { error: rpcError } = await supabase.rpc(fn, arg);
+    if (rpcError) { setError(rpcError.message); return; }
+    setDeleteRequest(null);
+    await loadAll();
   }
 
   async function deleteLocalidad(l) {
@@ -181,10 +156,7 @@ function App({ session, onSignOut }) {
     if (visitCount || orderCount) {
       return setError(`No se puede eliminar ${l.nombre}: tiene ${visitCount} visita(s) y ${orderCount} pedido(s).`);
     }
-    if (!confirm(`¿Eliminar la localidad "${l.nombre}"?`)) return;
-    const { error } = await supabase.from("localidades").delete().eq("id", l.id);
-    if (error) return setError(error.message);
-    await loadAll();
+    requestDelete("localidad", l);
   }
 
   const pedidosCountByVisita = useMemo(() => {
@@ -194,6 +166,7 @@ function App({ session, onSignOut }) {
   }, [pedidos]);
 
   const currentVisits = useMemo(() => visitas.filter(v => v.localidad_id === localidad?.id), [visitas, localidad]);
+  const visitIndexMap = useMemo(() => Object.fromEntries([...currentVisits].sort((a,b)=>numericCod(a)-numericCod(b)).map((v,i)=>[v.id,i+1])), [currentVisits]);
   const filteredVisits = useMemo(() => currentVisits.filter(v => {
     const q = search.toLowerCase().trim();
     if (q && !`${v.cod} ${v.codigo || ""} ${v.nombre_completo} ${v.numero} ${v.tipo} ${v.estado} ${v.visitado_como}`.toLowerCase().includes(q)) return false;
@@ -208,7 +181,7 @@ function App({ session, onSignOut }) {
   const counts = useMemo(() => ({
     total: currentVisits.length,
     visitados: currentVisits.filter(v => v.estado?.startsWith("Visitado")).length,
-    no: currentVisits.filter(v => v.estado === "No visitado").length,
+    no: currentVisits.filter(v => v.estado === "No visitado" || v.estado === "Cerrado por visitar").length,
     call: currentVisits.filter(v => v.revisado_call_center).length,
     pedidos: currentVisits.reduce((n, v) => n + (pedidosCountByVisita[v.id] || 0), 0)
   }), [currentVisits, pedidosCountByVisita]);
@@ -263,25 +236,25 @@ function App({ session, onSignOut }) {
         </div>
         <VisitFilters search={search} setSearch={setSearch} filters={visitFilters} setFilters={setVisitFilters} />
         <div className="toolbarActions"><button className="primary" onClick={() => setModal({ type: "visit", data: { ...emptyVisit, localidad_id: localidad?.id } })}><Plus /> Nueva visita</button></div>
-        <div className="statsMini statsFive"><Stat icon={<Users />} label="Visitas" value={counts.total} /><Stat icon={<Check />} label="Visitados" value={counts.visitados} /><Stat icon={<CalendarDays />} label="No visitados" value={counts.no} /><Stat icon={<Phone />} label="Call Center" value={counts.call} /><Stat icon={<Package />} label="Pedidos" value={counts.pedidos} /></div>
-        <div className="tableWrap"><table><thead><tr><th>COD</th><th>Nombre completo</th><th>Número</th><th>Tipo</th><th>Estado</th><th>Call Center</th><th>Pedidos</th><th></th></tr></thead><tbody>
-          {filteredVisits.map(v => <tr key={v.id}>
-            <td className="code">{v.cod ?? "—"}</td>
+        <div className="statsMini statsFive"><Stat icon={<Users />} label="Visitas" value={counts.total} /><Stat icon={<Check />} label="Visitados" value={counts.visitados} /><Stat icon={<CalendarDays />} label="No visitados / Cerrados" value={counts.no} /><Stat icon={<Phone />} label="Call Center" value={counts.call} /><Stat icon={<Package />} label="Pedidos" value={counts.pedidos} /></div>
+        <div className="tableWrap"><table><thead><tr><th>#</th><th>Nombre completo</th><th>Número</th><th>Tipo</th><th>Estado</th><th>Call Center</th><th>Pedidos</th><th></th></tr></thead><tbody>
+          {filteredVisits.map(v => <tr key={v.id} className={`visitRow ${tipoClass(v.tipo)}`}>
+            <td className="indexCell">{visitIndexMap[v.id]}</td>
             <td><div className="person"><button className="avatar avatarButton" onClick={() => v.foto_url && setLightbox(v.foto_url)} title={v.foto_url ? "Ver fotografía" : "Sin fotografía"}>{v.foto_url ? <img src={v.foto_url} /> : <Users />}</button><span>{v.nombre_completo}</span></div></td>
             <td><div className="phone"><span>{v.numero || "—"}</span>{v.numero && <a title="WhatsApp" href={wa(v.numero)} target="_blank" rel="noreferrer"><MessageCircle /></a>}</div></td>
             <td><span className={`typeBadge ${tipoClass(v.tipo)}`}>{tipoIcon(v.tipo)}{v.tipo}</span></td>
             <td><select className={`status ${estadoClass(v.estado)}`} value={v.estado} onChange={e => quickVisit(v.id, "estado", e.target.value)}>{ESTADOS.map(x => <option key={x}>{x}</option>)}</select></td>
-            <td><button className={`toggle ${v.revisado_call_center ? "yes" : ""}`} onClick={() => quickVisit(v.id, "revisado_call_center", !v.revisado_call_center)}>{v.revisado_call_center ? "Sí" : "No"}</button></td>
+            <td><button className={`toggle callToggle ${v.revisado_call_center ? "yes" : "no"}`} onClick={() => quickVisit(v.id, "revisado_call_center", !v.revisado_call_center)}>{v.revisado_call_center ? "Sí" : "No"}</button></td>
             <td><button className="orderCountBtn" onClick={() => openVisitOrders(v)} title="Ver pedidos de esta visita"><Package /> <b>{pedidosCountByVisita[v.id] || 0}</b><ChevronRight /></button></td>
-            <td><div className="actions"><button className="iconbtn" title="Ver detalles" onClick={() => setModal({ type: "detail", data: v })}><Eye /></button><button className="iconbtn" title="Editar" onClick={() => setModal({ type: "visit", data: v })}><Pencil /></button><button className="iconbtn danger" title="Eliminar" onClick={() => removeVisit(v.id)}><Trash2 /></button></div></td>
+            <td><div className="actions"><button className="iconbtn" title="Ver detalles" onClick={() => setModal({ type: "detail", data: v })}><Eye /></button><button className="iconbtn" title="Editar" onClick={() => setModal({ type: "visit", data: v })}><Pencil /></button><button className="iconbtn danger" title="Eliminar" onClick={() => requestDelete("visita", v)}><Trash2 /></button></div></td>
           </tr>)}
           {!filteredVisits.length && <tr><td colSpan="8" className="empty">No hay registros para los filtros seleccionados.</td></tr>}
         </tbody></table></div>
       </section>}
 
       {!loading && tab === "estadisticas" && <Stats visits={visitas} localidades={localidades} pedidos={pedidos} />}
-      {!loading && tab === "pedidos" && <Orders pedidos={pedidos} localidades={localidades} visitas={visitas} onSave={savePedido} onDelete={removePedido} onEdit={p => setModal({ type: "pedido", data: p })} onNew={() => setModal({ type: "pedido", data: { ...emptyPedido, localidad_id: localidad?.id || localidades[0]?.id || "" } })} />}
-      {!loading && tab === "localidades" && <Localidades ls={localidades} visitas={visitas} pedidos={pedidos} onAdd={addLocalidad} onEdit={editLocalidad} onDelete={deleteLocalidad} />}
+      {!loading && tab === "pedidos" && <Orders pedidos={pedidos} localidades={localidades} visitas={visitas} onSave={savePedido} onDelete={(id) => { const p = pedidos.find(x => x.id === id); if (p) requestDelete("pedido", p); }} onEdit={p => setModal({ type: "pedido", data: p })} onNew={() => setModal({ type: "pedido", data: { ...emptyPedido, localidad_id: localidad?.id || localidades[0]?.id || "" } })} />}
+      {!loading && tab === "localidades" && <Localidades ls={localidades} visitas={visitas} pedidos={pedidos} onAdd={addLocalidad} onEdit={editLocalidad} onDelete={deleteLocalidad} onSelect={(l) => { setLocalidad(l); setTab("localidades"); }} />}
       {!loading && tab === "logs" && <Logs accessCode={logsCode} />}
     </main>
 
@@ -290,6 +263,7 @@ function App({ session, onSignOut }) {
     {modal?.type === "pedido" && <PedidoModal data={modal.data} localidades={localidades} visitas={visitas} onClose={() => setModal(null)} onSave={savePedido} />}
     {modal?.type === "visitOrders" && <VisitOrdersModal visita={modal.data} pedidos={pedidos.filter(p => p.visita_id === modal.data.id)} localidades={localidades} onClose={() => setModal(null)} onEdit={p => setModal({ type: "pedido", data: p })} onNew={() => setModal({ type: "pedido", data: { ...emptyPedido, visita_id: modal.data.id, localidad_id: modal.data.localidad_id } })} />}
     {modal?.type === "logsGate" && <LogsGate onClose={() => setModal(null)} onUnlock={(code) => { setLogsCode(code); setLogsUnlocked(true); setModal(null); setTab("logs"); setMobileMenu(false); }} />}
+    {deleteRequest && <DeleteGate item={deleteRequest.item} kind={deleteRequest.kind} onClose={() => setDeleteRequest(null)} onConfirm={(code) => performDelete(deleteRequest.kind, deleteRequest.item, code)} />}
     {lightbox && <ImageLightbox src={lightbox} onClose={() => setLightbox(null)} />}
   </div>;
 }
@@ -361,7 +335,7 @@ function Stats({ visits, localidades, pedidos }) {
   const visitados = visits.filter(v => v.estado?.startsWith("Visitado")).length;
   const closed = visits.filter(v => v.estado === "Cerrado por visitar").length;
   return <section className="page"><div className="pageTitle"><div><h2>Estadísticas</h2><p>Resumen general y distribución por localidad, tipo, estado y pedidos.</p></div></div>
-    <div className="bigStats"><Stat label="Visitas" value={visits.length} icon={<Users />} /><Stat label="Visitados" value={visitados} icon={<Check />} /><Stat label="Cerrado por visitar" value={closed} icon={<CalendarDays />} /><Stat label="Pedidos" value={pedidos.length} icon={<Package />} /><Stat label="Unidades pedidas" value={totalQuantity} icon={<ClipboardList />} /><Stat label="Call Center" value={visits.filter(v => v.revisado_call_center).length} icon={<Phone />} /></div>
+    <div className="bigStats"><Stat label="Visitas" value={visits.length} icon={<Users />} /><Stat label="Visitados" value={visitados} icon={<Check />} /><Stat label="No visitados" value={visits.filter(v => v.estado === "No visitado").length} icon={<CalendarDays />} /><Stat label="Cerrado por visitar" value={closed} icon={<CalendarRange />} /><Stat label="Pedidos" value={pedidos.length} icon={<Package />} /><Stat label="Unidades pedidas" value={totalQuantity} icon={<ClipboardList />} /><Stat label="Call Center" value={visits.filter(v => v.revisado_call_center).length} icon={<Phone />} /></div>
     <div className="statsColumns"><div className="card"><h3>Visitas por tipo</h3>{TIPOS.map(t => { const n = types[t] || 0; return <div className="barrow" key={t}><span className={`barLabel ${tipoClass(t)}`}>{tipoIcon(t)}{t}</span><div className="bar"><i style={{ width: `${visits.length ? Math.round(n / visits.length * 100) : 0}%` }} /></div><b>{n}</b></div>; })}</div>
       <div className="card"><h3>Visitas por localidad</h3>{localidades.map(l => { const n = visits.filter(v => v.localidad_id === l.id).length; return <div className="barrow" key={l.id}><span>{l.nombre}</span><div className="bar"><i style={{ width: `${visits.length ? Math.round(n / visits.length * 100) : 0}%` }} /></div><b>{n}</b></div>; })}</div></div>
     <div className="statsColumns"><div className="card"><h3>Estados</h3>{ESTADOS.map(e => { const n = states[e] || 0; return <div className="barrow" key={e}><span>{e}</span><div className="bar"><i style={{ width: `${visits.length ? Math.round(n / visits.length * 100) : 0}%` }} /></div><b>{n}</b></div>; })}</div>
@@ -422,9 +396,19 @@ function PedidoModal({ data, localidades, visitas, onClose, onSave }) {
   </div><div className="modalFoot"><button className="secondary" onClick={onClose}>Cancelar</button><button className="primary" onClick={() => onSave(p)} disabled={!p.visita_id || !p.descripcion?.trim()}><Check /> Guardar pedido</button></div></div></div>;
 }
 
-function Localidades({ ls, visitas, pedidos, onAdd, onEdit, onDelete }) {
-  return <section className="page"><div className="pageTitle"><div><h2>Localidades</h2><p>Edita y administra las localidades disponibles.</p></div><button className="primary" onClick={onAdd}><Plus /> Nueva localidad</button></div><div className="cards">{ls.map(l => { const v = visitas.filter(x => x.localidad_id === l.id); const p = pedidos.filter(x => effectiveLocalityId(x, visitas) === l.id); return <div className="localCard" key={l.id}><div className="localCardIcon"><MapPin /></div><div className="localCardBody"><b>{l.nombre}</b><small>{v.length} visitas · {p.length} pedidos</small><div className="localTypeCounts"><span>{v.filter(x=>x.tipo === "Dentista").length} Dentistas</span><span>{v.filter(x=>x.tipo === "Hospital").length} Hospitales</span><span>{v.filter(x=>x.tipo === "Farmacia").length} Farmacias</span><span>{v.filter(x=>x.tipo === "Técnico").length} Técnicos</span></div></div><div className="actions"><button className="iconbtn" title="Editar localidad" onClick={() => onEdit(l)}><Pencil /></button><button className="iconbtn danger" title="Eliminar localidad" onClick={() => onDelete(l)}><Trash2 /></button></div></div>; })}</div></section>;
+function Localidades({ ls, visitas, pedidos, onAdd, onEdit, onDelete, onSelect }) {
+  const [selected, setSelected] = useState(ls[0] || null);
+  useEffect(() => { if (selected && !ls.some(x => x.id === selected.id)) setSelected(ls[0] || null); }, [ls, selected]);
+  const active = selected || ls[0] || null;
+  return <section className="page localityPage"><div className="pageTitle"><div><h2>Localidades</h2><p>Administra localidades y consulta sus registros sobre el mapa.</p></div><button className="primary" onClick={onAdd}><Plus /> Nueva localidad</button></div>
+    <div className="cards localityCards">{ls.map(l => { const v = visitas.filter(x => x.localidad_id === l.id); const p = pedidos.filter(x => effectiveLocalityId(x, visitas) === l.id); return <div className={`localCard ${active?.id === l.id ? "selectedLocalCard" : ""}`} key={l.id} onClick={() => { setSelected(l); onSelect(l); }}>
+      <div className="localCardIcon"><MapPin /></div><div className="localCardBody"><b>{l.nombre}</b><small>{v.length} visitas · {p.length} pedidos</small><div className="localTypeCounts"><span>{v.filter(x=>x.tipo === "Dentista").length} Dentistas</span><span>{v.filter(x=>x.tipo === "Hospital").length} Hospitales</span><span>{v.filter(x=>x.tipo === "Farmacia").length} Farmacias</span><span>{v.filter(x=>x.tipo === "Técnico").length} Técnicos</span></div></div>
+      <div className="actions" onClick={e => e.stopPropagation()}><button className="iconbtn" title="Ver en mapa" onClick={() => { setSelected(l); onSelect(l); }}><MapPinned /></button><button className="iconbtn" title="Editar localidad" onClick={() => onEdit(l)}><Pencil /></button><button className="iconbtn danger" title="Eliminar localidad" onClick={() => onDelete(l)}><Trash2 /></button></div>
+    </div>; })}</div>
+    {active && <LocalityMapPanel locality={active} visits={visitas.filter(v => v.localidad_id === active.id)} onDetail={(v) => window.dispatchEvent(new CustomEvent("open-visit-detail", { detail: v }))} />}
+  </section>;
 }
+
 function LogsGate({ onClose, onUnlock }) {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -506,6 +490,61 @@ function Logs({ accessCode }) {
     </tbody></table></div>
   </section>;
 }
+
+
+function DeleteGate({ item, kind, onClose, onConfirm }) {
+  const [code, setCode] = useState(""); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
+  const title = kind === "visita" ? "Eliminar visita" : kind === "pedido" ? "Eliminar pedido" : "Eliminar localidad";
+  const name = item?.nombre_completo || item?.descripcion || item?.nombre || "este registro";
+  async function submit(e) { e.preventDefault(); if (!code || busy) return; setBusy(true); setError(""); const { data, error: rpcError } = await supabase.rpc("verify_logs_access", { p_code: code }); if (rpcError || data !== true) { setError("Contraseña incorrecta"); setCode(""); setBusy(false); return; } await onConfirm(code); setBusy(false); }
+  return <div className="overlay"><div className="modal logsGateModal"><div className="modalHead"><div><h2>{title}</h2><p>Para eliminar {name}, introduce el código de seguridad.</p></div><button className="iconbtn" onClick={onClose}><X /></button></div><form onSubmit={submit} className="logsGateForm"><div className="logsKeyIcon dangerKey"><Trash2 /></div><label>Código de eliminación<div className="authInput"><LockKeyhole /><input autoFocus type="password" value={code} onChange={e => { setCode(e.target.value); setError(""); }} placeholder="Introduce el código" /></div></label>{error && <div className="logsGateError">{error}</div>}<div className="modalFoot"><button type="button" className="secondary" onClick={onClose}>Cancelar</button><button type="submit" className="dangerPrimary" disabled={busy}>{busy ? "Verificando..." : "Eliminar"}</button></div></form></div></div>;
+}
+
+let leafletPromise;
+function loadLeaflet() {
+  if (window.L) return Promise.resolve(window.L);
+  if (leafletPromise) return leafletPromise;
+  leafletPromise = new Promise((resolve, reject) => {
+    if (!document.querySelector('link[data-leaflet]')) { const link=document.createElement("link"); link.rel="stylesheet"; link.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; link.dataset.leaflet="1"; document.head.appendChild(link); }
+    const script=document.createElement("script"); script.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; script.onload=()=>resolve(window.L); script.onerror=reject; document.head.appendChild(script);
+  });
+  return leafletPromise;
+}
+function extractCoords(value) {
+  const s=String(value||""); let m=s.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/); if(m) return [Number(m[1]),Number(m[2])];
+  m=s.match(/[?&](?:q|query|ll)=(-?\d+(?:\.\d+)?)[,%20]+(-?\d+(?:\.\d+)?)/); if(m) return [Number(m[1]),Number(m[2])];
+  m=s.match(/(-?\d{1,3}\.\d{4,})\s*,\s*(-?\d{1,3}\.\d{4,})/); if(m) return [Number(m[1]),Number(m[2])];
+  return null;
+}
+async function geocodeText(text) {
+  if (!text) return null;
+  const key=`geo:${text.trim().toLowerCase()}`; try { const cached=localStorage.getItem(key); if(cached) return JSON.parse(cached); } catch {}
+  try { const r=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=bo&q=${encodeURIComponent(text)}`); const data=await r.json(); if(data?.[0]) { const c=[Number(data[0].lat),Number(data[0].lon)]; try{localStorage.setItem(key,JSON.stringify(c));}catch{} return c; } } catch {}
+  return null;
+}
+function typeMarkerIcon(L, tipo, estado) {
+  const symbol={Dentista:"D",Técnico:"T",Hospital:"H",Farmacia:"F"}[tipo]||"•";
+  const type={Dentista:"dentista",Técnico:"tecnico",Hospital:"hospital",Farmacia:"farmacia"}[tipo]||"default";
+  const red=!String(estado||"").startsWith("Visitado");
+  return L.divIcon({className:"customMapMarker", html:`<div class="mapPinMarker ${type} ${red?"red":"green"}"><span>${symbol}</span></div>`, iconSize:[34,42], iconAnchor:[17,42], popupAnchor:[0,-38]});
+}
+function LocalityMapPanel({ locality, visits, onDetail }) {
+  const mapRef=useRef(null), instanceRef=useRef(null), markersRef=useRef({});
+  const [ready,setReady]=useState(false), [coords,setCoords]=useState(null), [recordCoords,setRecordCoords]=useState({}), [search,setSearch]=useState(""), [locStatus,setLocStatus]=useState("Comprobando ubicación…");
+  const located=useMemo(()=>visits.filter(v=>!!v.ubicacion),[visits]);
+  const without=useMemo(()=>visits.filter(v=>!v.ubicacion),[visits]);
+  const visibleList=useMemo(()=>visits.filter(v=>`${v.nombre_completo} ${v.tipo}`.toLowerCase().includes(search.toLowerCase().trim())),[visits,search]);
+  useEffect(()=>{ let cancelled=false; (async()=>{const L=await loadLeaflet(); if(cancelled||!mapRef.current)return; setReady(true); const center=await geocodeText(`${locality.nombre}, Bolivia`); if(cancelled)return; setCoords(center||[-17.7833,-63.1821]);})(); return()=>{cancelled=true;};},[locality.id]);
+  useEffect(()=>{ if(!ready||!coords||!window.L||!mapRef.current)return; const L=window.L; if(instanceRef.current) instanceRef.current.remove(); const map=L.map(mapRef.current,{zoomControl:true}); L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap contributors",maxZoom:19}).addTo(map); map.setView(coords,13); instanceRef.current=map; const localMarker=L.marker(coords,{icon:L.divIcon({className:"localityMarker",html:`<div class="localityDot"></div>`,iconSize:[20,20],iconAnchor:[10,10]})}).addTo(map).bindTooltip(locality.nombre,{permanent:false}); return()=>{map.remove();instanceRef.current=null;}; },[ready,coords,locality.id,locality.nombre]);
+  useEffect(()=>{ let cancelled=false; (async()=>{const out={}; for(const v of located){ let c=extractCoords(v.ubicacion); if(!c) c=await geocodeText(`${v.ubicacion}, ${locality.nombre}, Bolivia`); if(c&&!cancelled) out[v.id]=c; } if(!cancelled)setRecordCoords(out);})(); return()=>{cancelled=true;}; },[locality.id,located.map(v=>`${v.id}:${v.ubicacion}`).join("|")]);
+  useEffect(()=>{ if(!instanceRef.current||!window.L)return; const L=window.L; Object.values(markersRef.current).forEach(m=>m.remove()); markersRef.current={}; Object.entries(recordCoords).forEach(([id,c])=>{const v=visits.find(x=>x.id===id); if(!v)return; const marker=L.marker(c,{icon:typeMarkerIcon(L,v.tipo,v.estado)}).addTo(instanceRef.current); const popup=document.createElement("div"); popup.className="mapPopup"; popup.innerHTML=`<div class="mapPopupPhoto">${v.foto_url?`<img src="${v.foto_url}" alt="">`:`<div class="mapNoPhoto">${v.tipo}</div>`}</div><b>${escapeHtml(v.nombre_completo||"Sin nombre")}</b><small>${escapeHtml(v.tipo)} · ${escapeHtml(v.estado||"")}</small>`; const btn=document.createElement("button"); btn.className="mapDetailBtn"; btn.textContent="Ver más detalles"; btn.onclick=()=>onDetail(v); popup.appendChild(btn); marker.bindPopup(popup); markersRef.current[id]=marker; }); },[recordCoords,visits]);
+  useEffect(()=>{ if(!navigator.geolocation){setLocStatus("Este navegador no permite conocer tu ubicación.");return;} navigator.geolocation.getCurrentPosition(async pos=>{ if(!instanceRef.current)return; const L=window.L; const here=[pos.coords.latitude,pos.coords.longitude]; const marker=L.circleMarker(here,{radius:7,color:"#4f3a78",fillColor:"#8a68b5",fillOpacity:.9,weight:3}).addTo(instanceRef.current).bindTooltip("Tu ubicación"); const target=coords; const distanceKm=target?distanceBetween(here,target):999; setLocStatus(distanceKm<35?"Estás en esta localidad":"No estás en esta localidad"); },()=>setLocStatus("No se pudo obtener tu ubicación."),{enableHighAccuracy:true,timeout:10000}); },[ready,coords,locality.id]);
+  function focus(v){const c=recordCoords[v.id]; if(c&&instanceRef.current){instanceRef.current.setView(c,16,{animate:true}); markersRef.current[v.id]?.openPopup();} else if(v.ubicacion) setErrorLocal();}
+  function setErrorLocal(){ }
+  return <div className="mapSection"><div className="mapSectionHead"><div><h3><MapPinned /> Mapa de {locality.nombre}</h3><p>{located.length} registros con ubicación · {without.length} sin ubicación</p></div><span className={`locationStatus ${locStatus.startsWith("Estás")?"inside":"outside"}`}><LocateFixed /> {locStatus}</span></div><div className="mapLayout"><div className="mapRecordsPanel"><div className="search filterSearch mapSearch"><Search /><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por nombre..." /></div><div className="mapRecordList">{visibleList.map(v=>{const has=!!recordCoords[v.id];return <button key={v.id} className="mapRecordItem" onClick={()=>has?focus(v):onDetail(v)}><span className={`miniType ${tipoClass(v.tipo)}`}>{tipoIcon(v.tipo)}</span><span><b>{v.nombre_completo}</b><small>{v.tipo}{has?"":" · Sin ubicación"}</small></span><ChevronRight /></button>})}{!visibleList.length&&<div className="empty mapEmpty">No hay registros.</div>}</div></div><div className="mapCanvasWrap"><div ref={mapRef} className="mapCanvas"></div>{!ready&&<div className="mapLoading">Cargando mapa…</div>}</div></div></div>;
+}
+function escapeHtml(value){return String(value||"").replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+function distanceBetween(a,b){const R=6371,rad=x=>x*Math.PI/180;const dLat=rad(b[0]-a[0]),dLon=rad(b[1]-a[1]);const x=Math.sin(dLat/2)**2+Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
 
 function SetupGuide() { return <div className="setup"><div className="setupCard"><div className="brandmark">I</div><h1>Visitas Provincias</h1><p>Imagina · Sonriure</p><h2>Configura Supabase</h2><p>Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en GitHub Actions y ejecuta la migración SQL indicada.</p></div></div>; }
 
