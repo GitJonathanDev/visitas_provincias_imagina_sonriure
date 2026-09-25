@@ -568,7 +568,7 @@ function getLocalityCenter(name) {
     cobija: [-11.0267, -68.7692],
     potosi: [-19.5836, -65.7531],
     oruro: [-17.9833, -67.1500],
-    la paz: [-16.4897, -68.1193],
+    "la paz": [-16.4897, -68.1193],
     cochabamba: [-17.3895, -66.1568]
   };
   return centers[key] || centers[Object.keys(centers).find(k => key.includes(k)) || "santa cruz"];
