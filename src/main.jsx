@@ -128,6 +128,49 @@ function App({ session, onSignOut }) {
     setModal(null); await loadAll();
   }
 
+  async function quickVisit(id, field, value) {
+    if (!supabase) return;
+    const { error: updateError } = await supabase.from("visitas").update({ [field]: value }).eq("id", id);
+    if (updateError) { setError(updateError.message); return; }
+    setVisitas(prev => prev.map(v => v.id === id ? { ...v, [field]: value } : v));
+  }
+
+  async function savePedido(p) {
+    if (!supabase) return;
+    const payload = { ...p };
+    delete payload.id;
+    delete payload.cod;
+    if (payload.cantidad !== "") payload.cantidad = Number(payload.cantidad || 1);
+    const result = p.id
+      ? await supabase.from("pedidos").update(payload).eq("id", p.id)
+      : await supabase.from("pedidos").insert(payload);
+    if (result.error) { setError(result.error.message); return; }
+    setModal(null);
+    await loadAll();
+  }
+
+  async function addLocalidad() {
+    if (!supabase) return;
+    const nombre = window.prompt("Nombre de la nueva localidad:", "");
+    if (nombre === null) return;
+    const clean = nombre.trim();
+    if (!clean) return;
+    const { error: insertError } = await supabase.from("localidades").insert({ nombre: clean, activo: true });
+    if (insertError) { setError(insertError.message); return; }
+    await loadAll();
+  }
+
+  async function editLocalidad(l) {
+    if (!supabase) return;
+    const nombre = window.prompt("Editar nombre de la localidad:", l.nombre || "");
+    if (nombre === null) return;
+    const clean = nombre.trim();
+    if (!clean || clean === l.nombre) return;
+    const { error: updateError } = await supabase.from("localidades").update({ nombre: clean }).eq("id", l.id);
+    if (updateError) { setError(updateError.message); return; }
+    await loadAll();
+  }
+
   async function verifyCode(code) {
     if (!supabase || !code) return false;
     const { data, error: rpcError } = await supabase.rpc("verify_logs_access", { p_code: code });
@@ -594,7 +637,7 @@ function LoginScreen() {
         {error && <div className="authError"><span>{error}</span><button type="button" className="authErrorClose" onClick={() => setError("")} title="Cerrar aviso"><X /></button></div>}
         <button className="primary authSubmit" type="submit" disabled={busy}>{busy ? "Iniciando sesión..." : "Iniciar sesión"}</button>
       </form>
-      <div className="authSecurity"><ShieldCheck /><span></span></div>
+      <div className="authSecurity"><ShieldCheck /><span>Acceso protegido mediante Supabase Auth</span></div>
     </div>
   </div>;
 }
