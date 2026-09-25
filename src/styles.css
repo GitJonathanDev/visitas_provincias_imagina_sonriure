@@ -16,6 +16,7 @@
 .app.sidebarCollapsed .logoutBtn svg{width:17px}
 .desktopSidebarToggle{display:grid}
 
+
 .authError{display:flex;align-items:flex-start;gap:8px}
 .authError>span{flex:1}
 .authErrorClose{border:0;background:transparent;color:inherit;padding:0;display:grid;place-items:center;cursor:pointer;flex:none}
