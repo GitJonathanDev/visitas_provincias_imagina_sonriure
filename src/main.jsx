@@ -596,15 +596,14 @@ async function resolveMapCoords(value) {
   if (direct) return direct;
   if (!isGoogleShortMapUrl(value)) return null;
   const key = `mapcoords:${String(value).trim()}`;
-  try { const cached = localStorage.getItem(key); if (cached) return JSON.parse(cached); } catch {}
+  try { const cached=localStorage.getItem(key); if(cached) return JSON.parse(cached); } catch {}
   try {
-    const r = await fetch(`/api/resolve-map?url=${encodeURIComponent(String(value))}`);
-    if (!r.ok) return null;
-    const data = await r.json();
-    if (Array.isArray(data?.coords) && data.coords.length === 2) {
-      const c = [Number(data.coords[0]), Number(data.coords[1])];
-      try { localStorage.setItem(key, JSON.stringify(c)); } catch {}
-      return c;
+    const r=await fetch(`/api/resolve-map?url=${encodeURIComponent(String(value))}`);
+    if(!r.ok) return null;
+    const data=await r.json();
+    if(Array.isArray(data?.coords)&&data.coords.length===2){
+      const c=[Number(data.coords[0]),Number(data.coords[1])];
+      if(Number.isFinite(c[0])&&Number.isFinite(c[1])){try{localStorage.setItem(key,JSON.stringify(c));}catch{} return c;}
     }
   } catch {}
   return null;
@@ -640,11 +639,13 @@ function LocalityMapPanel({ locality, visits, onDetail }) {
     const pt=instanceRef.current.latLngToContainerPoint(c);
     const w=mapRef.current?.clientWidth || 600;
     const h=mapRef.current?.clientHeight || 390;
-    setSelectedMapPos({left:Math.max(125,Math.min(w-125,pt.x)),top:Math.max(82,pt.y)});
+    setSelectedMapPos({left:Math.max(120,Math.min(w-120,pt.x)),top:Math.max(105,pt.y)});
   };
 
   useEffect(()=>{ if(!instanceRef.current||!window.L)return; const L=window.L; Object.values(markersRef.current).forEach(m=>m.remove()); markersRef.current={};
-    Object.entries(recordCoords).forEach(([id,c])=>{const v=visits.find(x=>x.id===id); if(!v)return; const marker=L.marker(c,{icon:typeMarkerIcon(L,v.tipo,v.estado,selectedMapVisit?.id===v.id),zIndexOffset:selectedMapVisit?.id===v.id?500:0}).addTo(instanceRef.current); marker.on("click",()=>{setSelectedMapVisit(v); instanceRef.current?.setView(c,Math.max(instanceRef.current.getZoom(),16),{animate:true});}); markersRef.current[id]=marker; });
+    const bounds=[];
+    Object.entries(recordCoords).forEach(([id,c])=>{const v=visits.find(x=>x.id===id); if(!v)return; bounds.push(c); const marker=L.marker(c,{icon:typeMarkerIcon(L,v.tipo,v.estado,selectedMapVisit?.id===v.id),zIndexOffset:selectedMapVisit?.id===v.id?1000:0}).addTo(instanceRef.current); marker.on("click",()=>{setSelectedMapVisit(v); instanceRef.current?.setView(c,Math.max(instanceRef.current.getZoom(),16),{animate:true}); setTimeout(updateSelectedPosition,180);}); markersRef.current[id]=marker; });
+    if(bounds.length && !selectedMapVisit){ const b=L.latLngBounds(bounds); instanceRef.current.fitBounds(b,{padding:[45,45],maxZoom:15,animate:false}); }
     updateSelectedPosition();
   },[recordCoords,visits,selectedMapVisit]);
 
