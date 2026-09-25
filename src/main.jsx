@@ -554,39 +554,221 @@ function loadLeaflet() {
   return leafletPromise;
 }
 function extractCoords(value) {
-  const s=String(value||""); let m=s.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/); if(m) return [Number(m[1]),Number(m[2])];
-  m=s.match(/[?&](?:q|query|ll)=(-?\d+(?:\.\d+)?)[,%20]+(-?\d+(?:\.\d+)?)/); if(m) return [Number(m[1]),Number(m[2])];
-  m=s.match(/(-?\d{1,3}\.\d{4,})\s*,\s*(-?\d{1,3}\.\d{4,})/); if(m) return [Number(m[1]),Number(m[2])];
+  const s = String(value || '').trim();
+  let m = s.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+  if (m) return [Number(m[1]), Number(m[2])];
+  m = s.match(/[?&](?:q|query|ll|destination|origin)=(-?\d+(?:\.\d+)?)[,%20]+(-?\d+(?:\.\d+)?)/i);
+  if (m) return [Number(m[1]), Number(m[2])];
+  m = s.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
+  if (m) return [Number(m[1]), Number(m[2])];
+  m = s.match(/(-?\d{1,3}\.\d{4,})\s*,\s*(-?\d{1,3}\.\d{4,})/);
+  if (m) return [Number(m[1]), Number(m[2])];
   return null;
 }
-async function geocodeText(text) {
-  if (!text) return null;
-  const key=`geo:${text.trim().toLowerCase()}`; try { const cached=localStorage.getItem(key); if(cached) return JSON.parse(cached); } catch {}
-  try { const r=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=bo&q=${encodeURIComponent(text)}`); const data=await r.json(); if(data?.[0]) { const c=[Number(data[0].lat),Number(data[0].lon)]; try{localStorage.setItem(key,JSON.stringify(c));}catch{} return c; } } catch {}
+
+function isGoogleShortMapUrl(value) {
+  try {
+    const u = new URL(String(value || '').trim());
+    const host = u.hostname.toLowerCase();
+    return host === 'maps.app.goo.gl' || host === 'goo.gl' && u.pathname.toLowerCase().startsWith('/maps');
+  } catch {
+    return false;
+  }
+}
+
+async function resolveMapCoords(value) {
+  const direct = extractCoords(value);
+  if (direct) return direct;
+  if (!isGoogleShortMapUrl(value)) return null;
+
+  const cacheKey = `google-map-coords:${String(value).trim()}`;
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+
+  try {
+    const response = await fetch(`/api/resolve-map?url=${encodeURIComponent(String(value).trim())}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    const coords = Array.isArray(data?.coords) && data.coords.length === 2
+      ? [Number(data.coords[0]), Number(data.coords[1])]
+      : extractCoords(data?.resolvedUrl || '');
+    if (coords && coords.every(Number.isFinite)) {
+      try { localStorage.setItem(cacheKey, JSON.stringify(coords)); } catch {}
+      return coords;
+    }
+  } catch {}
   return null;
 }
-function typeMarkerIcon(L, tipo, estado) {
-  const symbol={Dentista:"D",Técnico:"T",Hospital:"H",Farmacia:"F"}[tipo]||"•";
-  const type={Dentista:"dentista",Técnico:"tecnico",Hospital:"hospital",Farmacia:"farmacia"}[tipo]||"default";
-  const red=!String(estado||"").startsWith("Visitado");
-  return L.divIcon({className:"customMapMarker", html:`<div class="mapPinMarker ${type} ${red?"red":"green"}"><span>${symbol}</span></div>`, iconSize:[34,42], iconAnchor:[17,42], popupAnchor:[0,-38]});
+
+function typeMarkerIcon(L, tipo, estado, selected = false) {
+  const symbol = { Dentista: 'D', Técnico: 'T', Hospital: 'H', Farmacia: 'F' }[tipo] || '•';
+  const type = { Dentista: 'dentista', Técnico: 'tecnico', Hospital: 'hospital', Farmacia: 'farmacia' }[tipo] || 'default';
+  const red = !String(estado || '').startsWith('Visitado');
+  return L.divIcon({
+    className: 'customMapMarker',
+    html: `<div class="mapPinMarker ${type} ${red ? 'red' : 'green'} ${selected ? 'selected' : ''}"><span>${symbol}</span></div>`,
+    iconSize: [34, 42], iconAnchor: [17, 42]
+  });
 }
+
 function LocalityMapPanel({ locality, visits, onDetail }) {
-  const mapRef=useRef(null), instanceRef=useRef(null), markersRef=useRef({});
-  const [ready,setReady]=useState(false), [coords,setCoords]=useState(null), [recordCoords,setRecordCoords]=useState({}), [search,setSearch]=useState(""), [locStatus,setLocStatus]=useState("Comprobando ubicación…");
-  const located=useMemo(()=>visits.filter(v=>!!v.ubicacion),[visits]);
-  const without=useMemo(()=>visits.filter(v=>!v.ubicacion),[visits]);
-  const visibleList=useMemo(()=>visits.filter(v=>`${v.nombre_completo} ${v.tipo}`.toLowerCase().includes(search.toLowerCase().trim())),[visits,search]);
-  useEffect(()=>{ let cancelled=false; (async()=>{const L=await loadLeaflet(); if(cancelled||!mapRef.current)return; setReady(true); const center=await geocodeText(`${locality.nombre}, Bolivia`); if(cancelled)return; setCoords(center||[-17.7833,-63.1821]);})(); return()=>{cancelled=true;};},[locality.id]);
-  useEffect(()=>{ if(!ready||!coords||!window.L||!mapRef.current)return; const L=window.L; if(instanceRef.current) instanceRef.current.remove(); const map=L.map(mapRef.current,{zoomControl:true}); L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap contributors",maxZoom:19}).addTo(map); map.setView(coords,13); instanceRef.current=map; const localMarker=L.marker(coords,{icon:L.divIcon({className:"localityMarker",html:`<div class="localityDot"></div>`,iconSize:[20,20],iconAnchor:[10,10]})}).addTo(map).bindTooltip(locality.nombre,{permanent:false}); return()=>{map.remove();instanceRef.current=null;}; },[ready,coords,locality.id,locality.nombre]);
-  useEffect(()=>{ let cancelled=false; (async()=>{const out={}; for(const v of located){ let c=extractCoords(v.ubicacion); if(!c) c=await geocodeText(`${v.ubicacion}, ${locality.nombre}, Bolivia`); if(c&&!cancelled) out[v.id]=c; } if(!cancelled)setRecordCoords(out);})(); return()=>{cancelled=true;}; },[locality.id,located.map(v=>`${v.id}:${v.ubicacion}`).join("|")]);
-  useEffect(()=>{ if(!instanceRef.current||!window.L)return; const L=window.L; Object.values(markersRef.current).forEach(m=>m.remove()); markersRef.current={}; Object.entries(recordCoords).forEach(([id,c])=>{const v=visits.find(x=>x.id===id); if(!v)return; const marker=L.marker(c,{icon:typeMarkerIcon(L,v.tipo,v.estado)}).addTo(instanceRef.current); const popup=document.createElement("div"); popup.className="mapPopup"; popup.innerHTML=`<div class="mapPopupPhoto">${v.foto_url?`<img src="${v.foto_url}" alt="">`:`<div class="mapNoPhoto">${v.tipo}</div>`}</div><b>${escapeHtml(v.nombre_completo||"Sin nombre")}</b><small>${escapeHtml(v.tipo)} · ${escapeHtml(v.estado||"")}</small>`; const btn=document.createElement("button"); btn.className="mapDetailBtn"; btn.textContent="Ver más detalles"; btn.onclick=()=>onDetail(v); popup.appendChild(btn); marker.bindPopup(popup); markersRef.current[id]=marker; }); },[recordCoords,visits]);
-  useEffect(()=>{ if(!navigator.geolocation){setLocStatus("Este navegador no permite conocer tu ubicación.");return;} navigator.geolocation.getCurrentPosition(async pos=>{ if(!instanceRef.current)return; const L=window.L; const here=[pos.coords.latitude,pos.coords.longitude]; const marker=L.circleMarker(here,{radius:7,color:"#4f3a78",fillColor:"#8a68b5",fillOpacity:.9,weight:3}).addTo(instanceRef.current).bindTooltip("Tu ubicación"); const target=coords; const distanceKm=target?distanceBetween(here,target):999; setLocStatus(distanceKm<35?"Estás en esta localidad":"No estás en esta localidad"); },()=>setLocStatus("No se pudo obtener tu ubicación."),{enableHighAccuracy:true,timeout:10000}); },[ready,coords,locality.id]);
-  function focus(v){const c=recordCoords[v.id]; if(c&&instanceRef.current){instanceRef.current.setView(c,16,{animate:true}); markersRef.current[v.id]?.openPopup();} else if(v.ubicacion) setErrorLocal();}
-  function setErrorLocal(){ }
-  return <div className="mapSection"><div className="mapSectionHead"><div><h3><MapPinned /> Mapa de {locality.nombre}</h3><p>{located.length} registros con ubicación · {without.length} sin ubicación</p></div><span className={`locationStatus ${locStatus.startsWith("Estás")?"inside":"outside"}`}><LocateFixed /> {locStatus}</span></div><div className="mapLayout"><div className="mapRecordsPanel"><div className="search filterSearch mapSearch"><Search /><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por nombre..." /></div><div className="mapRecordList">{visibleList.map(v=>{const has=!!recordCoords[v.id];return <button key={v.id} className="mapRecordItem" onClick={()=>has?focus(v):onDetail(v)}><span className={`miniType ${tipoClass(v.tipo)}`}>{tipoIcon(v.tipo)}</span><span><b>{v.nombre_completo}</b><small>{v.tipo}{has?"":" · Sin ubicación"}</small></span><ChevronRight /></button>})}{!visibleList.length&&<div className="empty mapEmpty">No hay registros.</div>}</div></div><div className="mapCanvasWrap"><div ref={mapRef} className="mapCanvas"></div>{!ready&&<div className="mapLoading">Cargando mapa…</div>}</div></div></div>;
+  const mapRef = useRef(null), instanceRef = useRef(null), markersRef = useRef({});
+  const [ready, setReady] = useState(false);
+  const [coords, setCoords] = useState(null);
+  const [recordCoords, setRecordCoords] = useState({});
+  const [search, setSearch] = useState('');
+  const [locStatus, setLocStatus] = useState('Comprobando ubicación…');
+  const [selectedMapVisit, setSelectedMapVisit] = useState(null);
+
+  const located = useMemo(() => visits.filter(v => !!v.ubicacion), [visits]);
+  const without = useMemo(() => visits.filter(v => !v.ubicacion), [visits]);
+  const visibleList = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return visits.filter(v => `${v.nombre_completo} ${v.tipo}`.toLowerCase().includes(q));
+  }, [visits, search]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      await loadLeaflet();
+      if (cancelled || !mapRef.current) return;
+      setCoords(getLocalityCenter(locality.nombre));
+      setReady(true);
+    })();
+    return () => { cancelled = true; };
+  }, [locality.id]);
+
+  useEffect(() => {
+    if (!ready || !coords || !window.L || !mapRef.current) return;
+    const L = window.L;
+    if (instanceRef.current) instanceRef.current.remove();
+
+    const map = L.map(mapRef.current, { zoomControl: true, attributionControl: true });
+    // Mapa sin POI ni iconos comerciales: solo se dibujan nuestros marcadores.
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+      maxZoom: 19,
+      subdomains: 'abcd'
+    }).addTo(map);
+    map.setView(coords, 13);
+    instanceRef.current = map;
+
+    const localMarker = L.marker(coords, {
+      icon: L.divIcon({
+        className: 'localityMarker',
+        html: '<div class="localityDot"></div>',
+        iconSize: [20, 20], iconAnchor: [10, 10]
+      })
+    }).addTo(map);
+    localMarker.bindTooltip(locality.nombre);
+
+    return () => {
+      map.remove();
+      instanceRef.current = null;
+      markersRef.current = {};
+    };
+  }, [ready, coords, locality.id, locality.nombre]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const out = {};
+      for (const v of located) {
+        const c = await resolveMapCoords(v.ubicacion);
+        if (c && !cancelled) out[v.id] = c;
+      }
+      if (!cancelled) setRecordCoords(out);
+    })();
+    return () => { cancelled = true; };
+  }, [locality.id, located.map(v => `${v.id}:${v.ubicacion}`).join('|')]);
+
+  useEffect(() => {
+    if (!instanceRef.current || !window.L) return;
+    const L = window.L;
+    Object.values(markersRef.current).forEach(m => m.remove());
+    markersRef.current = {};
+
+    Object.entries(recordCoords).forEach(([id, c]) => {
+      const v = visits.find(x => x.id === id);
+      if (!v) return;
+      const marker = L.marker(c, { icon: typeMarkerIcon(L, v.tipo, v.estado, selectedMapVisit?.id === v.id) }).addTo(instanceRef.current);
+      marker.on('click', () => {
+        setSelectedMapVisit(v);
+        instanceRef.current?.setView(c, Math.max(instanceRef.current.getZoom(), 16), { animate: true });
+      });
+      markersRef.current[id] = marker;
+    });
+
+    if (selectedMapVisit?.id && recordCoords[selectedMapVisit.id]) {
+      const selected = visits.find(v => v.id === selectedMapVisit.id);
+      if (selected) setSelectedMapVisit(selected);
+    }
+  }, [recordCoords, visits, selectedMapVisit?.id]);
+
+  useEffect(() => {
+    if (!navigator.geolocation || !instanceRef.current) {
+      setLocStatus('No se pudo obtener tu ubicación.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(pos => {
+      if (!instanceRef.current) return;
+      const L = window.L;
+      const here = [pos.coords.latitude, pos.coords.longitude];
+      L.circleMarker(here, { radius: 7, color: '#4f3a78', fillColor: '#8a68b5', fillOpacity: .9, weight: 3 })
+        .addTo(instanceRef.current).bindTooltip('Tu ubicación');
+      const distanceKm = coords ? distanceBetween(here, coords) : 999;
+      setLocStatus(distanceKm < 35 ? 'Estás en esta localidad' : 'No estás en esta localidad');
+    }, () => setLocStatus('No se pudo obtener tu ubicación.'), { enableHighAccuracy: true, timeout: 10000 });
+  }, [ready, coords, locality.id]);
+
+  function focus(v) {
+    const c = recordCoords[v.id];
+    if (c && instanceRef.current) {
+      setSelectedMapVisit(v);
+      instanceRef.current.setView(c, 16, { animate: true });
+      markersRef.current[v.id]?.setIcon(typeMarkerIcon(window.L, v.tipo, v.estado, true));
+    } else {
+      setSelectedMapVisit(v);
+    }
+  }
+
+  return <div className="mapSection">
+    <div className="mapSectionHead">
+      <div><h3><MapPinned /> Mapa de {locality.nombre}</h3><p>{Object.keys(recordCoords).length} registros ubicados · {without.length} sin ubicación</p></div>
+      <span className={`locationStatus ${locStatus.startsWith('Estás') ? 'inside' : 'outside'}`}><LocateFixed /> {locStatus}</span>
+    </div>
+    <div className="mapLayout">
+      <div className="mapRecordsPanel">
+        <div className="search filterSearch mapSearch"><Search /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nombre..." /></div>
+        <div className="mapRecordList">
+          {visibleList.map(v => {
+            const has = !!recordCoords[v.id];
+            return <button key={v.id} className={`mapRecordItem ${selectedMapVisit?.id === v.id ? 'selected' : ''}`} onClick={() => focus(v)}>
+              <span className={`miniType ${tipoClass(v.tipo)}`}>{tipoIcon(v.tipo)}</span>
+              <span><b>{v.nombre_completo}</b><small>{v.tipo}{has ? '' : ' · Sin ubicación'}</small></span><ChevronRight />
+            </button>;
+          })}
+          {!visibleList.length && <div className="empty mapEmpty">No hay registros.</div>}
+        </div>
+      </div>
+      <div className="mapCanvasWrap">
+        <div ref={mapRef} className="mapCanvas"></div>
+        {!ready && <div className="mapLoading">Cargando mapa…</div>}
+        {selectedMapVisit && <div className="mapOverlayCard">
+          <button className="mapOverlayClose" onClick={() => setSelectedMapVisit(null)}><X /></button>
+          <div className="mapPopupPhoto">{selectedMapVisit.foto_url ? <img src={selectedMapVisit.foto_url} alt="" /> : <div className="mapNoPhoto">{selectedMapVisit.tipo}</div>}</div>
+          <b>{selectedMapVisit.nombre_completo || 'Sin nombre'}</b>
+          <small>{selectedMapVisit.tipo} · {selectedMapVisit.estado || ''}</small>
+          <button className="mapDetailBtn" onClick={() => onDetail(selectedMapVisit)}>Ver más detalles</button>
+        </div>}
+      </div>
+    </div>
+  </div>;
 }
-function escapeHtml(value){return String(value||"").replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+
+function escapeHtml(value){return String(value||'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function distanceBetween(a,b){const R=6371,rad=x=>x*Math.PI/180;const dLat=rad(b[0]-a[0]),dLon=rad(b[1]-a[1]);const x=Math.sin(dLat/2)**2+Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
 
 function SetupGuide() { return <div className="setup"><div className="setupCard"><div className="brandmark">I</div><h1>Visitas Provincias</h1><p>Imagina · Sonriure</p><h2>Configura Supabase</h2><p>Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en GitHub Actions y ejecuta la migración SQL indicada.</p></div></div>; }
