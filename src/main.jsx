@@ -553,6 +553,27 @@ function loadLeaflet() {
   });
   return leafletPromise;
 }
+function getLocalityCenter(name) {
+  const key = String(name || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const centers = {
+    camiri: [-20.0392, -63.5183],
+    villamontes: [-21.2553, -63.4059],
+    yacuiba: [-22.0164, -63.6775],
+    monteagudo: [-19.8163, -63.9636],
+    "santa cruz": [-17.7833, -63.1821],
+    "santa cruz de la sierra": [-17.7833, -63.1821],
+    sucre: [-19.0333, -65.2627],
+    tarija: [-21.5355, -64.7296],
+    trinidad: [-14.8333, -64.9000],
+    cobija: [-11.0267, -68.7692],
+    potosi: [-19.5836, -65.7531],
+    oruro: [-17.9833, -67.1500],
+    la paz: [-16.4897, -68.1193],
+    cochabamba: [-17.3895, -66.1568]
+  };
+  return centers[key] || centers[Object.keys(centers).find(k => key.includes(k)) || "santa cruz"];
+}
+
 function extractCoords(value) {
   const s = String(value || '').trim();
   let m = s.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
