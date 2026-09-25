@@ -16,7 +16,6 @@
 .app.sidebarCollapsed .logoutBtn svg{width:17px}
 .desktopSidebarToggle{display:grid}
 
-
 .authError{display:flex;align-items:flex-start;gap:8px}
 .authError>span{flex:1}
 .authErrorClose{border:0;background:transparent;color:inherit;padding:0;display:grid;place-items:center;cursor:pointer;flex:none}
@@ -209,3 +208,33 @@
 .mapPopup{min-width:180px;display:grid;gap:5px}.mapPopupPhoto{width:100%;height:85px;border-radius:7px;overflow:hidden;background:#f0edf3}.mapPopupPhoto img{width:100%;height:100%;object-fit:cover}.mapNoPhoto{height:100%;display:grid;place-items:center;color:#756c80;font-size:10px}.mapPopup>b{font-size:12px}.mapPopup>small{font-size:10px;color:#777}.mapDetailBtn{border:0;border-radius:7px;background:#7452a0;color:#fff;padding:7px 9px;font-size:10px;font-weight:800;cursor:pointer}.mapDetailBtn:hover{background:#63458c}.mapEmpty{padding:15px}
 @media(max-width:900px){.mapLayout{grid-template-columns:1fr}.mapRecordsPanel{max-height:260px}.mapCanvasWrap,.mapCanvas{min-height:430px;height:430px}.mapSectionHead{align-items:flex-start;flex-direction:column}}
 @media(max-width:560px){.mapSection{padding:10px}.mapCanvasWrap,.mapCanvas{min-height:380px;height:380px}.mapSectionHead h3{font-size:14px}.mapRecordList{max-height:230px}}
+
+/* MAPA V6.1 - compacto, sin POI y ficha superpuesta */
+.mapLayout{grid-template-columns:280px minmax(0,1fr);min-height:390px;height:390px}
+.mapRecordsPanel{height:390px;min-height:0}
+.mapRecordList{min-height:0;overflow-y:auto;scrollbar-width:thin}
+.mapCanvasWrap{height:390px;min-height:390px;position:relative}
+.mapCanvas{position:absolute;inset:0;min-height:0;height:100%}
+.mapRecordItem.selected{background:#eee7f8;box-shadow:inset 3px 0 0 var(--purple)}
+.mapPinMarker.selected{transform:rotate(-45deg) scale(1.18);box-shadow:0 3px 10px rgba(0,0,0,.4);z-index:1000}
+.mapOverlayCard{position:absolute;z-index:800;top:12px;right:12px;width:220px;max-width:calc(100% - 24px);background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px;box-shadow:0 10px 28px rgba(35,25,55,.22);display:grid;gap:5px}
+.mapOverlayCard .mapPopupPhoto{height:100px}
+.mapOverlayCard>b{font-size:12px;line-height:1.25}
+.mapOverlayCard>small{font-size:10px;color:var(--muted)}
+.mapOverlayClose{position:absolute;right:7px;top:7px;width:28px;height:28px;border:1px solid var(--border);border-radius:50%;background:rgba(255,255,255,.94);display:grid;place-items:center;z-index:2;color:#5f5968}
+.mapOverlayClose svg{width:14px}
+.mapOverlayClose:hover{color:var(--purple);border-color:#cdbde1}
+@media(max-width:900px){
+  .mapLayout{grid-template-columns:1fr;height:auto;min-height:0}
+  .mapRecordsPanel{height:180px;max-height:180px}
+  .mapCanvasWrap{height:330px;min-height:330px}
+  .mapCanvas{height:330px}
+}
+@media(max-width:560px){
+  .mapSection{margin-top:14px}
+  .mapRecordsPanel{height:170px;max-height:170px}
+  .mapCanvasWrap{height:300px;min-height:300px}
+  .mapCanvas{height:300px}
+  .mapOverlayCard{width:195px}
+  .mapOverlayCard .mapPopupPhoto{height:82px}
+}
